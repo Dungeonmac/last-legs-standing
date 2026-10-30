@@ -16,8 +16,9 @@ bucket_name = "lls-uploads"
 
 [vars]
 SITE_NAME = "Last Legs Standing"
-# Comma-separated emails that get admin rights.
-ADMIN_EMAILS = "admin@lastlegsstanding.test"
+# Comma-separated emails that get admin rights on the LIVE site.
+# Locally, .dev.vars overrides this with the demo admin (admin@lastlegsstanding.test).
+ADMIN_EMAILS = "jeffeersonjeff546@gmail.com"
 # Help desk messages are forwarded here (once RESEND_API_KEY is set) and always kept in Admin.
 SUPPORT_EMAIL = "jeffeersonjeff546@gmail.com"
 # Secrets (set with `wrangler pages secret put NAME`, or in .dev.vars locally):

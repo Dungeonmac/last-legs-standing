@@ -3,4 +3,5 @@ node_modules/
 .dev.vars
 samples/
 scripts/seed.sql
+scripts/seed-prod.sql
 scripts/demo-meta.json

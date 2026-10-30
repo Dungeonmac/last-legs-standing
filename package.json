@@ -10,6 +10,7 @@
     "db:schema": "wrangler d1 execute lls-db --local --file schema.sql",
     "db:seed": "node scripts/seed.mjs && wrangler d1 execute lls-db --local --file scripts/seed.sql",
     "db:reset": "npm run db:schema && npm run db:seed",
+    "db:prod-seed": "node scripts/seed.mjs --prod && wrangler d1 execute lls-db --remote --file schema.sql && wrangler d1 execute lls-db --remote --file scripts/seed-prod.sql",
     "sample-gpx": "node scripts/sample-gpx.mjs"
   },
   "devDependencies": {

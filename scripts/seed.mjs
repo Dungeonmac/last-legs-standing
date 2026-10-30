@@ -4,6 +4,8 @@
 //   - the real upcoming 2027 event (placeholder date) with registration open
 //   - an admin account and a test runner account (printed at the end)
 // Run with: npm run db:reset
+// --prod writes scripts/seed-prod.sql for the live site: same demo data, but WITHOUT the demo admin account
+// (its password is in this public repo). Live admins come from ADMIN_EMAILS instead.
 
 import { writeFileSync } from 'node:fs';
 import { webcrypto as crypto } from 'node:crypto';
@@ -139,7 +141,8 @@ const events = [
 // ----- demo accounts
 const admin = await hash('AdminDemo2026!');
 const runner = await hash('RunDemo2026!');
-const adminId = addUser({ email: 'admin@lastlegsstanding.test', first_name: 'Race', last_name: 'Director', country: 'United States', role: 'admin', password_hash: admin.hash, password_salt: admin.salt });
+const PROD = process.argv.includes('--prod');
+const adminId = PROD ? null : addUser({ email: 'admin@lastlegsstanding.test', first_name: 'Race', last_name: 'Director', country: 'United States', role: 'admin', password_hash: admin.hash, password_salt: admin.salt });
 const testId = addUser({ email: 'runner@lastlegsstanding.test', first_name: 'Test', last_name: 'Runner', country: 'United States', password_hash: runner.hash, password_salt: runner.salt, dob: '1992-05-14', gender: 'Male' });
 const paid = await hash('PaidDemo2026!');
 const paidId = addUser({ email: 'paid@lastlegsstanding.test', first_name: 'Jordan', last_name: 'Rivera', country: 'United States', password_hash: paid.hash, password_salt: paid.salt, dob: '1995-08-21', gender: 'Female' });
@@ -212,7 +215,7 @@ bulk('registrations', ['id', 'event_id', 'user_id', 'bib', 'status', 'first_time
 bulk('addresses', ['user_id', 'kind', 'line1', 'city', 'region', 'postal', 'country'], addresses);
 bulk('runs', ['registration_id', 'user_id', 'event_id', 'race_day', 'source', 'start_time', 'end_time', 'distance_m', 'moving_s', 'elapsed_s', 'avg_hr', 'max_speed_kmh', 'elevation_gain_m', 'risk_score', 'flags', 'status'], runs);
 
-writeFileSync(new URL('./seed.sql', import.meta.url), sql.join('\n') + '\n');
+writeFileSync(new URL(PROD ? './seed-prod.sql' : './seed.sql', import.meta.url), sql.join('\n') + '\n');
 writeFileSync(new URL('./demo-meta.json', import.meta.url), JSON.stringify({ liveStart, generatedAt: new Date(now).toISOString() }, null, 2));
 console.log(`seed.sql written: ${users.length} users, ${regs.length} registrations, ${runs.length} runs. Live demo started ${liveStart}.`);
 console.log('Admin login:  admin@lastlegsstanding.test / AdminDemo2026!');

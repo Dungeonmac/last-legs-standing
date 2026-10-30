@@ -38,7 +38,7 @@
         <li><b>Sign up yourself:</b> go to <a href="/signup.html">Sign up</a> and use the test card <span class="num">4242 4242 4242 4242</span> with any future expiry date. Enter a birth date under 18 to see the parent or guardian consent steps.</li>
         <li><b>Upload a run:</b> as the mid-race runner, run <code>npm run sample-gpx</code>, then upload <code>samples/today-valid-run.gpx</code> on the Upload page.</li>
         <li><b>On your phone:</b> open this page on your phone (same Wi-Fi) to see the mobile layout and the bottom tab bar.</li>
-        <li><b>Admin:</b> log in as <code>admin@lastlegsstanding.test</code> / <code>AdminDemo2026!</code> to see the help desk inbox and the review queue.</li>
+        <li id="admin-tip"><b>Admin:</b> log in as <code>admin@lastlegsstanding.test</code> / <code>AdminDemo2026!</code> to see the help desk inbox and the review queue.</li>
       </ul>
     </div>
   </div></section>
@@ -50,11 +50,7 @@
   const err = document.getElementById('err');
   // The demo accounts only exist in the local database (npm run db:reset), never on the live site.
   const local = ['localhost', '127.0.0.1'].includes(location.hostname) || /^(192\.168|10)\./.test(location.hostname);
-  if (!local) {
-    document.querySelectorAll('[data-email]').forEach((b) => b.remove());
-    err.className = 'alert warn';
-    err.textContent = 'The demo runner accounts are only available on the local preview. On the live site, sign up for real or watch the welcome animation below.';
-  }
+  if (!local) document.getElementById('admin-tip')?.remove(); // the demo admin account only exists locally
   document.querySelectorAll('[data-email]').forEach((b) => b.addEventListener('click', async () => {
     err.classList.add('hidden');
     try {
