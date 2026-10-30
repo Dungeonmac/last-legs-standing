@@ -1,0 +1,14 @@
+# Private mail sender for help desk messages. Deploy with: npx wrangler deploy (from this folder)
+name = "lls-mailer"
+main = "src/index.js"
+compatibility_date = "2025-09-01"
+workers_dev = false   # no public URL: only the website (service binding MAILER) can call it
+
+# Cloudflare Email Routing: can only send to this verified destination address.
+[[send_email]]
+name = "SEND_EMAIL"
+destination_address = "jeffeersonjeff546@gmail.com"
+
+[vars]
+FROM = "helpdesk@lastlegsstanding.com"
+TO = "jeffeersonjeff546@gmail.com"

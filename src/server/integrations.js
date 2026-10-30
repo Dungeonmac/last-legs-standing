@@ -120,12 +120,21 @@ export async function stravaActivityPoints(env, userId, activityId) {
 }
 
 // ---------------- Email (help desk) ----------------
+// Preferred: the lls-mailer Worker (workers/mailer), bound here as MAILER. It sends through Cloudflare
+// Email Routing to the verified help desk inbox, with no outside email service.
 // Help desk messages are always saved in the database and shown in Admin. They are also emailed to
 // SUPPORT_EMAIL once RESEND_API_KEY is set (free account at resend.com). Until you verify your own
 // domain with Resend, its test sender can only deliver to the email address you signed up to Resend with.
-export const emailEnabled = (env) => !!(env.RESEND_API_KEY && env.SUPPORT_EMAIL);
+export const emailEnabled = (env) => !!env.MAILER || !!(env.RESEND_API_KEY && env.SUPPORT_EMAIL);
 
-export async function sendEmail(env, { to, replyTo, subject, text }) {
+export async function sendEmail(env, { to, replyTo, replyName, subject, text }) {
+  if (env.MAILER) {
+    const res = await env.MAILER.fetch('https://lls-mailer/send', {
+      method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ subject, text, replyTo, replyName }),
+    });
+    if (!res.ok) throw new Error(`Mailer error (${res.status}): ${await res.text()}`);
+    return;
+  }
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: { authorization: `Bearer ${env.RESEND_API_KEY}`, 'content-type': 'application/json' },

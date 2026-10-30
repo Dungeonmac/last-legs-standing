@@ -17,6 +17,11 @@ database_id = "ac770aa8-7398-41ae-9d5f-7e9ed52ac5da"
 # binding = "UPLOADS"
 # bucket_name = "lls-uploads"
 
+# Private mail sender for help desk messages (workers/mailer). Deploy it before the site.
+[[services]]
+binding = "MAILER"
+service = "lls-mailer"
+
 [vars]
 SITE_NAME = "Last Legs Standing"
 # Master switch for log in, new accounts, race sign-up and payments on the LIVE site.

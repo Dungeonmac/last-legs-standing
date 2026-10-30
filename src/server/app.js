@@ -579,7 +579,7 @@ route('POST', '/support', async ({ request, env }) => {
   if (emailEnabled(env)) {
     try {
       await sendEmail(env, {
-        to: env.SUPPORT_EMAIL, replyTo: msg.email, subject: `[Help #${id}] ${msg.topic}: ${msg.name}`,
+        to: env.SUPPORT_EMAIL, replyTo: msg.email, replyName: msg.name, subject: `[Help #${id}] ${msg.topic}: ${msg.name}`,
         text: [
           `Topic: ${msg.topic}`, `From: ${msg.name} <${msg.email}>`, `Bib: ${msg.bib || '(none given)'}`,
           `Logged in as: ${user ? `${user.first_name} ${user.last_name} <${user.email}>` : '(not logged in)'}`,
