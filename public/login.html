@@ -47,6 +47,17 @@
   const next = new URLSearchParams(location.search).get('next');
   const dest = next && next.startsWith('/') && !next.startsWith('//') ? next : '/account.html';
   if (me.user) location.replace(dest);
+  if (me.accountsOpen === false) {
+    // Accounts are switched off on the live site for now (see ACCOUNTS_OPEN).
+    document.querySelector('#main .wrap').innerHTML = `
+      <div class="card center" style="padding:3rem 2rem">
+        <div class="eyebrow">Almost time</div>
+        <h1 class="display" style="font-size:clamp(2.4rem,7vw,3.4rem)">Accounts open soon.</h1>
+        <p class="lead" style="margin:0 auto 1.5rem">Runner accounts and race registration are opening shortly. In the meantime, get to know the race.</p>
+        <div class="row" style="justify-content:center"><a class="btn" href="/#rules">Read the rules</a><a class="btn ghost" href="/how-to-submit.html">How runs are submitted</a><a class="btn ghost" href="/help.html">Questions?</a></div>
+      </div>`;
+    throw new Error('accounts closed');
+  }
   const createForm = document.getElementById('create');
   const showCreate = () => { createForm.classList.remove('hidden'); document.getElementById('c_first').focus(); };
   document.getElementById('show-create').addEventListener('click', (e) => { e.preventDefault(); showCreate(); });

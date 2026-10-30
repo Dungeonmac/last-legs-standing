@@ -19,6 +19,10 @@ database_id = "ac770aa8-7398-41ae-9d5f-7e9ed52ac5da"
 
 [vars]
 SITE_NAME = "Last Legs Standing"
+# Master switch for log in, new accounts, race sign-up and payments on the LIVE site.
+# Off until Stripe is set up. Turn on by changing to "true" and running npm run deploy.
+# (Locally, .dev.vars sets ACCOUNTS_OPEN=true so everything can still be tested.)
+ACCOUNTS_OPEN = "false"
 # Admins are set on the account itself: after someone signs up, run  npm run make-admin -- their@email.com
 # Help desk messages are forwarded here (once RESEND_API_KEY is set) and always kept in Admin.
 SUPPORT_EMAIL = "jeffeersonjeff546@gmail.com"

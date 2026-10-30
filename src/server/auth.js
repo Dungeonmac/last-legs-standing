@@ -50,7 +50,19 @@ function readToken(request) {
   return m ? m[1] : null;
 }
 
+/**
+ * Master switch for everything account-related (log in, new accounts, race sign-up, payments).
+ * Set ACCOUNTS_OPEN = "true" in wrangler.toml (live) or .dev.vars (local) to turn it on.
+ * While it's off, nobody is logged in, even with an old session cookie.
+ */
+export const accountsOpen = (env) => env.ACCOUNTS_OPEN === 'true';
+
+export function requireAccountsOpen(env) {
+  if (!accountsOpen(env)) throw new HttpError(403, 'Accounts and registration open soon. Thanks for your patience!');
+}
+
 export async function currentUser(request, env) {
+  if (!accountsOpen(env)) return null;
   const token = readToken(request);
   if (!token) return null;
   const row = await env.DB.prepare(

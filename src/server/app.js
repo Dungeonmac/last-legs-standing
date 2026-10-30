@@ -1,5 +1,5 @@
 import { HttpError, json, readJson, required, clean, dayNumber, dayWindow, sha256Hex, randomToken } from './util.js';
-import { hashPassword, verifyPassword, validatePassword, createSession, clearSessionCookie, currentUser, destroySession, requireUser, requireAdmin } from './auth.js';
+import { hashPassword, verifyPassword, validatePassword, createSession, clearSessionCookie, currentUser, destroySession, requireUser, requireAdmin, accountsOpen, requireAccountsOpen } from './auth.js';
 import { parseActivityFile } from './parsers.js';
 import { computeMetrics, fingerprint, assessRun } from './analyze.js';
 import { syncEvent, liveStats, pastEventStats, publicEvent, recheckRegistration, standings, rankEvent, refreshTotals } from './race.js';
@@ -143,7 +143,8 @@ function validAddress(a, label) {
 // ---------------------------------------------------------------- config & auth
 route('GET', '/config', async ({ request, env }) => json({
   // Sign-up opens to the public once real card payments (Stripe) are set up. Admins in demo mode can preview it.
-  registrationOpen: stripeEnabled(env) || (await isAdminDemo(request, env)),
+  accountsOpen: accountsOpen(env),
+  registrationOpen: accountsOpen(env) && (stripeEnabled(env) || (await isAdminDemo(request, env))),
   stripePublishableKey: stripeEnabled(env) ? env.STRIPE_PUBLISHABLE_KEY : null,
   strava: stravaEnabled(env),
   waiverVersion: WAIVER_VERSION,
@@ -152,7 +153,7 @@ route('GET', '/config', async ({ request, env }) => json({
 
 route('GET', '/me', async ({ request, env }) => {
   const user = await viewer(request, env);
-  if (!user) return json({ user: null });
+  if (!user) return json({ user: null, accountsOpen: accountsOpen(env) });
   const { results } = await env.DB.prepare(
     `SELECT r.id, r.bib, r.status, r.eliminated_day, r.final_place, r.shirt_size, r.amount_cents, r.payment_status, r.created_at,
             e.id AS event_id, e.slug, e.name, e.status AS event_status, e.start_date
@@ -182,6 +183,7 @@ const MAX_FAILS_PER_IP = 10;
 const MAX_FAILS_PER_EMAIL = 8;
 
 route('POST', '/auth/login', async ({ request, env }) => {
+  requireAccountsOpen(env);
   const body = await readJson(request);
   const email = (clean(body.email, 200) || '').toLowerCase();
   const ip = request.headers.get('cf-connecting-ip') || 'local';
@@ -206,6 +208,7 @@ route('POST', '/auth/login', async ({ request, env }) => {
 
 // Create an account without entering a race (anyone can enter a race later from the sign-up page).
 route('POST', '/auth/register', async ({ request, env }) => {
+  requireAccountsOpen(env);
   const b = await readJson(request);
   required(b, ['first_name', 'last_name', 'email', 'password']);
   if (!isEmail(b.email)) throw new HttpError(400, 'Enter a valid email address.');
@@ -229,6 +232,7 @@ route('POST', '/auth/logout', async ({ request, env }) => {
 // The browser asks for a payment only after /signup with check_only has accepted every detail,
 // so a runner is never charged for a sign-up that would then be refused.
 route('POST', '/payments/intent', async ({ request, env }) => {
+  requireAccountsOpen(env);
   if (!stripeEnabled(env)) throw new HttpError(400, 'Card payments are not set up yet.');
   const body = await readJson(request);
   const ev = await eventBySlug(env, clean(body.event_slug));
@@ -240,6 +244,7 @@ route('POST', '/payments/intent', async ({ request, env }) => {
 });
 
 route('POST', '/signup', async ({ request, env }) => {
+  requireAccountsOpen(env);
   const b = await readJson(request);
   const sessionUser = await currentUser(request, env);
   const preview = !stripeEnabled(env) && !!sessionUser?.isAdmin && isDemoRequest(request);
@@ -510,6 +515,7 @@ route('GET', '/runs/:id', async ({ request, env, params }) => {
 
 // ---------------------------------------------------------------- Strava
 route('GET', '/strava/connect', async ({ request, env, url }) => {
+  requireAccountsOpen(env);
   const user = await requireUser(request, env);
   if (!stravaEnabled(env)) throw new HttpError(400, 'Strava connection is not configured yet.');
   const state = `${user.id}.${randomToken(12)}`;

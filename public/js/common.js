@@ -156,7 +156,7 @@ function header(page, me) {
        ${me.user.isAdmin ? `<a href="/admin.html" ${page === 'admin' ? 'aria-current="page"' : ''}>Admin</a>
          <a href="/demo.html" class="demo-toggle ${demoOn() ? 'on' : ''}" ${page === 'demo' ? 'aria-current="page"' : ''}>Demo ${demoOn() ? 'on' : 'off'}</a>` : ''}
        <a href="/account.html" class="btn ghost sm">My race</a>`
-    : `<a href="/login.html">Log in</a>`;
+    : me.accountsOpen === false ? '' : `<a href="/login.html">Log in</a>`;
   return `
   <a class="skip" href="#main">Skip to content</a>
   <header class="site-header">
@@ -170,7 +170,7 @@ function header(page, me) {
         ${links}
         <div class="nav-actions">
           ${account}
-          <a href="/signup.html" class="btn sm">Sign up</a>
+          ${me.accountsOpen === false ? '' : '<a href="/signup.html" class="btn sm">Sign up</a>'}
           <div class="units" role="group" aria-label="Distance units">
             <button data-u="km" aria-pressed="${u === 'km'}">KM</button><button data-u="mi" aria-pressed="${u === 'mi'}">MI</button>
           </div>
@@ -180,7 +180,7 @@ function header(page, me) {
   </header>`;
 }
 
-function footer() {
+function footer(me) {
   const y = new Date().getFullYear();
   return `
   <footer class="site-footer">
@@ -194,7 +194,7 @@ function footer() {
           <li><a href="/#about">How it works</a></li><li><a href="/#rules">Rules</a></li>
           <li><a href="/events.html">Events</a></li><li><a href="/live.html">Live race</a></li></ul></div>
         <div><h4>Runners</h4><ul>
-          <li><a href="/signup.html">Sign up</a></li><li><a href="/login.html">Log in</a></li>
+          ${me.accountsOpen === false ? '' : '<li><a href="/signup.html">Sign up</a></li><li><a href="/login.html">Log in</a></li>'}
           <li><a href="/upload.html">Upload a run</a></li><li><a href="/track.html">Run tracker</a></li>
           <li><a href="/how-to-submit.html">How to submit a run</a></li></ul></div>
         <div><h4>Help &amp; legal</h4><ul>
@@ -230,7 +230,7 @@ export async function mountChrome() {
     document.getElementById('demo-as').addEventListener('change', (e) => { setDemo(true, e.target.value || null); location.reload(); });
     document.getElementById('demo-off').addEventListener('click', () => { setDemo(false); location.reload(); });
   }
-  document.body.insertAdjacentHTML('beforeend', footer());
+  document.body.insertAdjacentHTML('beforeend', footer(me));
   if (me.user) {
     document.body.classList.add('has-tabbar');
     document.body.insertAdjacentHTML('beforeend', `<nav class="tabbar" aria-label="Runner">${TABS.map(([href, label, key, icon]) =>
