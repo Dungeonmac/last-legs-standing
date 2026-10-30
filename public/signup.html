@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sign up · Last Legs Standing</title>
+  <meta name="theme-color" content="#0c0d0f">
+  <link rel="icon" href="/img/favicon.svg" type="image/svg+xml">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body data-page="signup">
+<main id="main">
+  <section class="page-head">
+    <div class="wrap">
+      <div class="eyebrow">Registration</div>
+      <h1 class="display" style="font-size:clamp(2.6rem,6vw,4.4rem)">Claim your bib.</h1>
+      <p class="lead">It takes about three minutes. You’ll review the rules and sign the waiver at the end.</p>
+    </div>
+  </section>
+
+  <section class="section" style="padding-top:2.5rem">
+    <div class="wrap">
+      <div id="signup-done" class="hidden"></div>
+      <form id="signup" class="signup-layout" novalidate>
+        <div>
+          <div id="form-error" class="alert error hidden" role="alert" style="margin-bottom:1.25rem"></div>
+
+          <!-- 1. Challenge -->
+          <fieldset>
+            <legend><span class="n">01</span>Choose your challenge</legend>
+            <div class="choice-grid" id="event-choices"><span class="spinner"></span></div>
+          </fieldset>
+
+          <!-- 2. First time? -->
+          <fieldset>
+            <legend><span class="n">02</span>Have you raced with us before?</legend>
+            <p class="hint" style="margin-top:0">Required. This helps us understand who’s coming back for more.</p>
+            <div class="choice-grid" role="radiogroup" aria-required="true">
+              <label class="choice"><input type="radio" name="first_time" value="first" required><span class="box"><b>First time</b><span class="muted small">This is my first Last Legs Standing.</span></span></label>
+              <label class="choice"><input type="radio" name="first_time" value="returning"><span class="box"><b>Returning runner</b><span class="muted small">I’ve taken part in a previous edition.</span></span></label>
+            </div>
+          </fieldset>
+
+          <!-- 3. Runner -->
+          <fieldset>
+            <legend><span class="n">03</span>Runner details</legend>
+            <div class="form-grid">
+              <div class="field c3"><label class="req" for="first_name">First name</label><input id="first_name" name="first_name" autocomplete="given-name" required maxlength="60"></div>
+              <div class="field c3"><label class="req" for="last_name">Last name</label><input id="last_name" name="last_name" autocomplete="family-name" required maxlength="60"></div>
+              <div class="field c3 account-only"><label class="req" for="email">Email</label><input id="email" name="email" type="email" autocomplete="email" required></div>
+              <div class="field c3 account-only"><label class="req" for="password">Create a password</label><input id="password" name="password" type="password" autocomplete="new-password" minlength="8" required><span class="hint">8+ characters, with a letter and a number.</span></div>
+              <div class="field c2"><label class="req" for="dob">Date of birth</label><input id="dob" name="dob" type="date" required autocomplete="bday"><span class="hint">You must be 18+ on the start date.</span></div>
+              <div class="field c2"><label for="gender">Gender</label>
+                <select id="gender" name="gender"><option value="">Prefer not to say</option><option>Female</option><option>Male</option><option>Non-binary</option></select></div>
+              <div class="field c2"><label class="req" for="shirt_size">Shirt size</label>
+                <select id="shirt_size" name="shirt_size" required><option value="">Select…</option><option>XS</option><option>S</option><option>M</option><option>L</option><option>XL</option><option>XXL</option><option>XXXL</option></select></div>
+              <div class="field c3"><label class="req" for="country">Country you’ll run in</label><input id="country" name="country" list="countries" required autocomplete="country-name"></div>
+              <div class="field c3"><label class="req" for="phone">Phone</label><input id="phone" name="phone" type="tel" autocomplete="tel" required></div>
+              <div class="field c3"><label class="req" for="emergency_name">Emergency contact name</label><input id="emergency_name" name="emergency_name" required></div>
+              <div class="field c3"><label class="req" for="emergency_phone">Emergency contact phone</label><input id="emergency_phone" name="emergency_phone" type="tel" required></div>
+            </div>
+          </fieldset>
+
+          <!-- 4. Shipping -->
+          <fieldset>
+            <legend><span class="n">04</span>Shipping address</legend>
+            <div class="privacy-note">
+              <span aria-hidden="true">🔒</span>
+              <span><b>Your information stays private.</b> We never sell, rent or share your personal information. Your address is used only to ship your shirt, medal and any prizes. <a href="/privacy.html" target="_blank">Privacy policy</a></span>
+            </div>
+            <div class="form-grid" data-addr="shipping">
+              <div class="field c4"><label class="req">Street address</label><input name="line1" autocomplete="shipping address-line1" required></div>
+              <div class="field c2"><label>Apt / suite</label><input name="line2" autocomplete="shipping address-line2"></div>
+              <div class="field c2"><label class="req">City</label><input name="city" autocomplete="shipping address-level2" required></div>
+              <div class="field c2"><label>State / province / region</label><input name="region" autocomplete="shipping address-level1"></div>
+              <div class="field c2"><label class="req">ZIP / postal code</label><input name="postal" autocomplete="shipping postal-code" required></div>
+              <div class="field c3"><label class="req">Country</label><input name="country" list="countries" autocomplete="shipping country-name" required></div>
+            </div>
+          </fieldset>
+
+          <!-- 5. Payment -->
+          <fieldset>
+            <legend><span class="n">05</span>Payment</legend>
+            <div id="demo-pay-note" class="demo-banner hidden" style="margin-top:0">
+              <b>Test mode.</b> Payments aren’t connected yet, so no card will be charged. Use test card <span class="num">4242 4242 4242 4242</span>, any future expiry date and any CVC. Card numbers never leave your browser.
+            </div>
+            <div class="form-grid" id="demo-card">
+              <div class="field"><label class="req" for="cc_name">Name on card</label><input id="cc_name" autocomplete="cc-name" required></div>
+              <div class="field c4"><label class="req" for="cc_number">Card number</label><input id="cc_number" inputmode="numeric" autocomplete="cc-number" placeholder="1234 1234 1234 1234" required maxlength="23"></div>
+              <div class="field c2"><label class="req" for="cc_brand">Card</label><input id="cc_brand" readonly tabindex="-1" placeholder="—"></div>
+              <div class="field c3"><label class="req" for="cc_exp">Expiry (MM/YY)</label><input id="cc_exp" inputmode="numeric" autocomplete="cc-exp" placeholder="MM/YY" required maxlength="5"></div>
+              <div class="field c3"><label class="req" for="cc_cvc">Security code (CVC)</label><input id="cc_cvc" inputmode="numeric" autocomplete="cc-csc" placeholder="123" required maxlength="4"></div>
+            </div>
+            <div id="stripe-card" class="hidden">
+              <div class="field"><label class="req" for="cc_name_s">Name on card</label><input id="cc_name_s" autocomplete="cc-name"></div>
+              <div style="margin-top:1rem;padding:.9rem;border:1px solid var(--rule);border-radius:8px;background:var(--page)" id="stripe-mount"></div>
+              <p class="hint">Payments are processed securely by Stripe. Your card number never touches our servers.</p>
+            </div>
+
+            <h3 style="margin-top:1.75rem">Billing address</h3>
+            <label class="check"><input type="checkbox" id="billing_same" checked> Same as shipping address</label>
+            <div class="form-grid hidden" data-addr="billing" style="margin-top:1rem">
+              <div class="field c4"><label class="req">Street address</label><input name="line1" autocomplete="billing address-line1"></div>
+              <div class="field c2"><label>Apt / suite</label><input name="line2" autocomplete="billing address-line2"></div>
+              <div class="field c2"><label class="req">City</label><input name="city" autocomplete="billing address-level2"></div>
+              <div class="field c2"><label>State / province / region</label><input name="region" autocomplete="billing address-level1"></div>
+              <div class="field c2"><label class="req">ZIP / postal code</label><input name="postal" autocomplete="billing postal-code"></div>
+              <div class="field c3"><label class="req">Country</label><input name="country" list="countries" autocomplete="billing country-name"></div>
+            </div>
+          </fieldset>
+        </div>
+
+        <!-- Summary -->
+        <aside>
+          <div class="card summary">
+            <div class="eyebrow" style="margin-bottom:.6rem">Order summary</div>
+            <h3 id="sum-event">Select a challenge</h3>
+            <p class="muted small" id="sum-date"></p>
+            <div class="line"><span>Entry fee</span><span id="sum-fee" class="num">—</span></div>
+            <div class="line"><span>Shirt + medal shipping</span><span>Included</span></div>
+            <div class="line total"><span>Total</span><span id="sum-total" class="num">—</span></div>
+            <button class="btn block lg" type="submit" style="margin-top:1rem">Review rules &amp; waiver</button>
+            <p class="hint" style="margin-top:.8rem">Next you’ll read the rules and sign the liability waiver. Your card is charged only after you agree. Entry fees are non-refundable.</p>
+          </div>
+        </aside>
+      </form>
+    </div>
+  </section>
+
+  <!-- Rules + waiver dialog -->
+  <dialog id="waiver-dialog" aria-labelledby="wd-title">
+    <form method="dialog" id="waiver-form">
+      <div class="modal-head"><h2 id="wd-title">Rules &amp; waiver</h2><button class="close-x" value="cancel" aria-label="Close">×</button></div>
+      <div class="modal-body">
+        <p class="ink2" style="margin-top:0">Before your registration is complete, you must read and accept the official rules and the liability waiver.</p>
+        <h3>The rules</h3>
+        <div class="legal-box" id="wd-rules" style="max-height:220px"></div>
+        <h3 style="margin-top:1.4rem">Waiver, release of liability &amp; assumption of risk</h3>
+        <div class="legal-box" id="wd-waiver" tabindex="0" aria-label="Waiver text. Scroll to the end to continue."></div>
+        <p class="scroll-hint" id="scroll-hint">↓ Scroll to the end of the waiver to continue.</p>
+        <div class="stack" style="margin-top:1.2rem">
+          <label class="check"><input type="checkbox" id="ag_rules" disabled> <span>I have read and agree to follow the <b>official rules</b>, including the daily 23:59:59 UTC deadline, elimination, the tiebreakers and disqualification for cheating.</span></label>
+          <label class="check"><input type="checkbox" id="ag_waiver" disabled> <span>I have read the <b>waiver and release of liability</b>. I understand that I <b>assume all risks</b> of taking part, including <b>serious injury and death</b>, and that I am <b>giving up my right to sue</b>.</span></label>
+          <label class="check"><input type="checkbox" id="ag_age" disabled> <span>I am <b>18 or older</b>, physically fit to take part, and responsible for my own health and safety.</span></label>
+          <div class="form-grid">
+            <div class="field c4"><label class="req" for="sig">Electronic signature: type your full name</label><input id="sig" autocomplete="off" disabled placeholder="First Last"></div>
+            <div class="field c2"><label for="sig-date">Date</label><input id="sig-date" readonly tabindex="-1"></div>
+          </div>
+          <div id="wd-error" class="alert error hidden" role="alert"></div>
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn ghost" value="cancel">Back</button>
+        <button class="btn" id="agree-btn" type="button" disabled>Agree &amp; complete signup</button>
+      </div>
+    </form>
+  </dialog>
+
+  <datalist id="countries"></datalist>
+</main>
+
+<script type="module">
+  import { mountChrome, api, money, fmtDate, fmtLocal, esc } from '/js/common.js';
+  import { RULES, WAIVER_HTML, WAIVER_VERSION } from '/js/legal.js';
+
+  const COUNTRIES = 'Argentina,Australia,Austria,Belgium,Brazil,Bulgaria,Canada,Chile,China,Colombia,Costa Rica,Croatia,Czechia,Denmark,Ecuador,Egypt,Estonia,Ethiopia,Finland,France,Germany,Ghana,Greece,Hong Kong,Hungary,Iceland,India,Indonesia,Ireland,Israel,Italy,Jamaica,Japan,Kenya,Latvia,Lithuania,Luxembourg,Malaysia,Mexico,Morocco,Nepal,Netherlands,New Zealand,Nigeria,Norway,Pakistan,Peru,Philippines,Poland,Portugal,Puerto Rico,Romania,Saudi Arabia,Serbia,Singapore,Slovakia,Slovenia,South Africa,South Korea,Spain,Sweden,Switzerland,Taiwan,Thailand,Turkey,Uganda,Ukraine,United Arab Emirates,United Kingdom,United States,Uruguay,Vietnam'.split(',');
+  document.getElementById('countries').innerHTML = COUNTRIES.map((c) => `<option value="${c}">`).join('');
+
+  const me = await mountChrome();
+  const form = document.getElementById('signup');
+  const $ = (id) => document.getElementById(id);
+  const params = new URLSearchParams(location.search);
+
+  const [config, events] = await Promise.all([api('/config'), api('/events')]);
+  const open = events.upcoming.filter((e) => e.registration_open);
+
+  // ---- challenges
+  const choices = $('event-choices');
+  if (!open.length) {
+    choices.innerHTML = '<p class="muted">Registration isn’t open for any challenge right now. Check the <a href="/events.html">events page</a>.</p>';
+  } else {
+    choices.innerHTML = open.map((e, i) => `
+      <label class="choice"><input type="radio" name="event" value="${e.slug}" ${(params.get('event') ? params.get('event') === e.slug : i === 0) ? 'checked' : ''} required>
+        <span class="box"><b>${esc(e.name)}</b><span class="muted small">Day 1: ${fmtDate(e.start_ms, 'UTC')} (00:00 UTC)<br>Entry ${money(e.fee_cents)} · ${e.registered} registered</span></span></label>`).join('');
+  }
+  const selected = () => open.find((e) => e.slug === form.querySelector('input[name=event]:checked')?.value);
+  function updateSummary() {
+    const e = selected();
+    $('sum-event').textContent = e ? e.name : 'Select a challenge';
+    $('sum-date').textContent = e ? `Day 1 starts ${fmtLocal(e.start_ms)}` : '';
+    $('sum-fee').textContent = e ? money(e.fee_cents) : '—';
+    $('sum-total').textContent = e ? money(e.fee_cents) : '—';
+  }
+  choices.addEventListener('change', updateSummary);
+  updateSummary();
+
+  // ---- logged-in runners don't need a new account
+  if (me.user) {
+    document.querySelectorAll('.account-only').forEach((n) => { n.classList.add('hidden'); n.querySelector('input').required = false; });
+    $('first_name').value = me.user.first_name;
+    $('last_name').value = me.user.last_name;
+  }
+
+  // ---- billing toggle
+  const billingGrid = document.querySelector('[data-addr=billing]');
+  $('billing_same').addEventListener('change', (e) => {
+    billingGrid.classList.toggle('hidden', e.target.checked);
+    billingGrid.querySelectorAll('input').forEach((i) => { if (!['line2', 'region'].includes(i.name)) i.required = !e.target.checked; });
+  });
+
+  // ---- payment: Stripe when configured, test mode otherwise
+  let stripe, card;
+  if (config.stripePublishableKey) {
+    $('demo-card').classList.add('hidden');
+    $('demo-card').querySelectorAll('input').forEach((i) => (i.required = false));
+    $('stripe-card').classList.remove('hidden');
+    $('cc_name_s').required = true;
+    await new Promise((res) => { const s = document.createElement('script'); s.src = 'https://js.stripe.com/v3/'; s.onload = res; document.head.append(s); });
+    stripe = window.Stripe(config.stripePublishableKey);
+    card = stripe.elements({ appearance: { theme: 'night' } }).create('card', { style: { base: { color: '#ecebe6', fontSize: '16px' } } });
+    card.mount('#stripe-mount');
+  } else {
+    $('demo-pay-note').classList.remove('hidden');
+  }
+
+  const digits = (s) => s.replace(/\D/g, '');
+  const brandOf = (n) => /^4/.test(n) ? 'Visa' : /^(5[1-5]|2[2-7])/.test(n) ? 'Mastercard' : /^3[47]/.test(n) ? 'Amex' : /^6(011|5)/.test(n) ? 'Discover' : '';
+  const luhn = (n) => { let s = 0; for (let i = 0; i < n.length; i++) { let d = +n[n.length - 1 - i]; if (i % 2) { d *= 2; if (d > 9) d -= 9; } s += d; } return n.length >= 13 && s % 10 === 0; };
+  $('cc_number').addEventListener('input', (e) => {
+    const n = digits(e.target.value).slice(0, 19);
+    e.target.value = n.replace(/(.{4})/g, '$1 ').trim();
+    $('cc_brand').value = brandOf(n);
+  });
+  $('cc_exp').addEventListener('input', (e) => {
+    const d = digits(e.target.value).slice(0, 4);
+    e.target.value = d.length > 2 ? `${d.slice(0, 2)}/${d.slice(2)}` : d;
+  });
+  $('cc_cvc').addEventListener('input', (e) => { e.target.value = digits(e.target.value).slice(0, 4); });
+
+  // ---- validation
+  function addr(kind) {
+    const g = document.querySelector(`[data-addr=${kind}]`);
+    return Object.fromEntries([...g.querySelectorAll('input')].map((i) => [i.name, i.value.trim()]));
+  }
+  function showError(msg, field) {
+    const box = $('form-error');
+    box.textContent = msg;
+    box.classList.remove('hidden');
+    box.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    if (field) { field.setAttribute('aria-invalid', 'true'); field.focus({ preventScroll: true }); }
+  }
+  form.addEventListener('input', (e) => e.target.removeAttribute?.('aria-invalid'));
+
+  function validate() {
+    $('form-error').classList.add('hidden');
+    if (!selected()) return showError('Choose a challenge.'), false;
+    if (!form.querySelector('input[name=first_time]:checked')) return showError('Tell us whether this is your first time or you’re a returning runner.'), false;
+    for (const el of form.querySelectorAll('input, select')) {
+      if (el.closest('.hidden')) continue;
+      if (!el.checkValidity()) {
+        const label = el.closest('.field')?.querySelector('label')?.textContent || el.name;
+        return showError(`Please check: ${label.replace(' *', '')}.`, el), false;
+      }
+    }
+    const dob = new Date(`${$('dob').value}T00:00:00Z`);
+    const start = new Date(selected().start_ms);
+    let age = start.getUTCFullYear() - dob.getUTCFullYear();
+    if (start.getUTCMonth() < dob.getUTCMonth() || (start.getUTCMonth() === dob.getUTCMonth() && start.getUTCDate() < dob.getUTCDate())) age--;
+    if (!(age >= 18)) return showError('You must be at least 18 years old on the start date.', $('dob')), false;
+    if (!me.user && !(/[A-Za-z]/.test($('password').value) && /\d/.test($('password').value))) return showError('Your password needs at least one letter and one number.', $('password')), false;
+    if (!config.stripePublishableKey) {
+      const n = digits($('cc_number').value);
+      if (!luhn(n)) return showError('That card number isn’t valid.', $('cc_number')), false;
+      const [mm, yy] = $('cc_exp').value.split('/').map(Number);
+      const exp = new Date(Date.UTC(2000 + yy, mm, 1));
+      if (!(mm >= 1 && mm <= 12) || exp <= new Date()) return showError('The card expiry date isn’t valid.', $('cc_exp')), false;
+      if (!/^\d{3,4}$/.test($('cc_cvc').value)) return showError('Enter the 3- or 4-digit security code.', $('cc_cvc')), false;
+    }
+    return true;
+  }
+
+  // ---- rules & waiver dialog
+  const dlg = $('waiver-dialog');
+  $('wd-rules').innerHTML = `<ol style="padding-left:1.2rem;margin:0">${RULES.map(([t, d]) => `<li style="margin-bottom:.5rem"><b style="color:var(--ink)">${t}</b> ${d}</li>`).join('')}</ol>`;
+  $('wd-waiver').innerHTML = WAIVER_HTML;
+  $('sig-date').value = new Date().toLocaleDateString();
+  const gated = ['ag_rules', 'ag_waiver', 'ag_age', 'sig'].map($);
+  $('wd-waiver').addEventListener('scroll', (e) => {
+    const b = e.target;
+    if (b.scrollTop + b.clientHeight >= b.scrollHeight - 24) {
+      gated.forEach((g) => (g.disabled = false));
+      $('scroll-hint').textContent = '✓ Waiver read. Please confirm below.';
+      $('scroll-hint').style.color = 'var(--good)';
+    }
+  });
+  const norm = (s) => s.trim().replace(/\s+/g, ' ').toLowerCase();
+  const fullName = () => `${$('first_name').value} ${$('last_name').value}`;
+  function checkAgree() {
+    $('agree-btn').disabled = !($('ag_rules').checked && $('ag_waiver').checked && $('ag_age').checked && norm($('sig').value) === norm(fullName()));
+  }
+  dlg.addEventListener('input', checkAgree);
+  dlg.addEventListener('change', checkAgree);
+  $('sig').placeholder = fullName();
+
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    if (!validate()) return;
+    $('sig').placeholder = fullName();
+    $('wd-error').classList.add('hidden');
+    dlg.showModal();
+  });
+
+  $('agree-btn').addEventListener('click', async () => {
+    const btn = $('agree-btn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Processing…';
+    const ev = selected();
+    const body = {
+      event_slug: ev.slug,
+      first_time: form.querySelector('input[name=first_time]:checked').value,
+      first_name: $('first_name').value.trim(), last_name: $('last_name').value.trim(),
+      email: $('email').value.trim(), password: $('password').value,
+      dob: $('dob').value, gender: $('gender').value, shirt_size: $('shirt_size').value,
+      country: $('country').value.trim(), phone: $('phone').value.trim(),
+      emergency_name: $('emergency_name').value.trim(), emergency_phone: $('emergency_phone').value.trim(),
+      shipping: addr('shipping'), billing_same: $('billing_same').checked, billing: addr('billing'),
+      waiver: { version: WAIVER_VERSION, signed_name: $('sig').value.trim(), agreed_rules: true, agreed_waiver: true, agreed_age: true },
+    };
+    try {
+      if (stripe) {
+        const intent = await api('/payments/intent', { json: { event_slug: ev.slug, email: body.email || me.user?.email } });
+        const b = body.billing_same ? body.shipping : body.billing;
+        const r = await stripe.confirmCardPayment(intent.clientSecret, {
+          payment_method: { card, billing_details: { name: $('cc_name_s').value, address: { line1: b.line1, line2: b.line2, city: b.city, state: b.region, postal_code: b.postal } } },
+        });
+        if (r.error) throw new Error(r.error.message);
+        body.payment = { payment_intent: r.paymentIntent.id };
+      } else {
+        const n = digits($('cc_number').value);
+        body.payment = { last4: n.slice(-4), brand: brandOf(n) || 'card' }; // the full number is never sent
+      }
+      const res = await api('/signup', { json: body });
+      dlg.close();
+      form.classList.add('hidden');
+      const done = $('signup-done');
+      done.classList.remove('hidden');
+      done.innerHTML = `
+        <div class="card center" style="max-width:640px;margin:0 auto;padding:3rem 2rem">
+          <div class="eyebrow">You’re in</div>
+          <h2 class="display" style="font-size:3.4rem">Bib #${res.bib}</h2>
+          <p class="lead" style="margin:0 auto 1rem">Welcome to <b>${esc(res.event.name)}</b>. Day 1 is <b>1 km</b> and starts <b>${fmtLocal(res.event.start_ms)}</b>.</p>
+          ${res.demoPayment ? '<p class="badge demo">Test payment: no card was charged</p>' : '<p class="muted">A receipt has been sent to your email.</p>'}
+          <div class="row" style="justify-content:center;margin-top:1.5rem"><a class="btn" href="/account.html">Go to my race</a><a class="btn ghost" href="/#rules">Re-read the rules</a></div>
+        </div>`;
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch (err) {
+      $('wd-error').textContent = err.message;
+      $('wd-error').classList.remove('hidden');
+      btn.disabled = false;
+      btn.textContent = 'Agree & complete signup';
+    }
+  });
+</script>
+</body>
+</html>

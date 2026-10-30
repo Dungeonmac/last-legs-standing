@@ -1,0 +1,6 @@
+# Copy to .dev.vars for local secrets (never commit .dev.vars).
+# Leave blank to keep demo mode.
+STRIPE_SECRET_KEY=
+STRIPE_PUBLISHABLE_KEY=
+STRAVA_CLIENT_ID=
+STRAVA_CLIENT_SECRET=

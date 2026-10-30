@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>My race · Last Legs Standing</title>
+  <meta name="theme-color" content="#0c0d0f">
+  <link rel="icon" href="/img/favicon.svg" type="image/svg+xml">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body data-page="account">
+<main id="main">
+  <section class="page-head"><div class="wrap row between">
+    <div><div class="eyebrow">My race</div><h1 class="display" style="font-size:clamp(2.4rem,6vw,4rem);margin:0" id="hello">Hi</h1></div>
+    <button class="btn ghost sm" id="logout">Log out</button>
+  </div></section>
+  <section class="section" style="padding-top:2.5rem"><div class="wrap stack" id="content"><span class="spinner"></span></div></section>
+</main>
+<script type="module">
+  import { mountChrome, requireLogin, api, fmtLocal, fmtUTC, fmtDate, esc, dist, both, pace, duration, countdown } from '/js/common.js';
+  await mountChrome();
+  const me = await requireLogin();
+  const d = await api('/dashboard');
+  const $ = (id) => document.getElementById(id);
+  $('hello').textContent = `Hi, ${d.user.first_name}`;
+  $('logout').addEventListener('click', async () => { await api('/auth/logout', { method: 'POST' }); location.href = '/'; });
+
+  function raceCard(r) {
+    if (!r) {
+      const upcoming = me.registrations.filter((x) => x.event_status === 'upcoming');
+      return upcoming.length
+        ? `<div class="card raise"><div class="eyebrow">You’re registered</div>${upcoming.map((u) => `<h2 style="margin:.2rem 0">${esc(u.name)}</h2><p class="ink2">Bib #${u.bib} · Day 1 starts ${fmtUTC(Date.parse(u.start_date + 'T00:00:00Z'))}</p><div class="cd-up" data-t="${Date.parse(u.start_date + 'T00:00:00Z')}"></div>`).join('<hr style="border-color:var(--hair)">')}</div>`
+        : `<div class="empty">You’re not in a live race right now. <a href="/events.html">Find an event</a> or <a href="/signup.html">sign up</a>.</div>`;
+    }
+    if (r.status !== 'active') {
+      return `<div class="card raise"><span class="badge ${r.status}">${r.status}</span><h2 style="margin:.6rem 0">${esc(r.event.name)}</h2>
+        <p class="ink2">${esc(r.status_reason || '')}</p><p class="ink2">Thank you for running. Follow the rest of the race on the <a href="/live.html">live page</a>.</p></div>`;
+    }
+    const pct = Math.min(100, (r.done_m / r.due_m) * 100);
+    const done = r.done_m >= r.due_m;
+    return `
+      <div class="grid g2">
+        <div class="tile hero-tile">
+          <div class="row between"><span class="badge active">Still standing</span><span class="muted small">Bib #${r.bib}${r.event.is_demo ? ' · <span class="gold">demo race</span>' : ''}</span></div>
+          <div class="value" style="font-size:clamp(3.4rem,8vw,5rem);margin-top:.6rem">Day ${r.day}</div>
+          <div class="sub" style="font-size:1.1rem">Due today: <b class="accent">${both(r.due_m, r.due_m % 1000 ? 2 : 0)}</b></div>
+          <div style="margin-top:1.2rem">
+            <div class="row between small"><span>${done ? '<b style="color:var(--good)">✓ Today’s distance complete</b>' : 'Today’s progress'}</span><span class="num">${dist(r.done_m, 2)} / ${dist(r.due_m, 0)}</span></div>
+            <div class="progress ${done ? 'done' : ''}" style="margin-top:.4rem"><span style="width:${pct}%"></span></div>
+            ${done ? '' : `<p class="small ink2" style="margin:.5rem 0 0">${dist(r.due_m - r.done_m, 2)} to go. Tip: run 2–3% extra in case your GPS reads short.</p>`}
+          </div>
+        </div>
+        <div class="tile">
+          <div class="label">Time left to submit</div>
+          <div id="cd" style="margin:.7rem 0"></div>
+          <div class="sub">Deadline: <b>${fmtUTC(r.deadline, false)}</b> · <b>${fmtLocal(r.deadline)}</b> your time</div>
+          <div class="row" style="margin-top:1.2rem"><a class="btn" href="/upload.html">Upload a run</a><a class="btn ghost" href="/track.html">Record with tracker</a></div>
+        </div>
+      </div>`;
+  }
+
+  const flagList = (flags) => flags.length ? `<ul class="flag-list">${flags.map((f) => `<li class="${f.hard ? 'hard' : ''}"><b>${f.code.replace(/_/g, ' ')}</b>: ${esc(f.detail)}</li>`).join('')}</ul>` : '';
+  function runsTable(runs) {
+    if (!runs.length) return '<div class="empty">No runs uploaded yet.</div>';
+    return `<div class="table-wrap"><table>
+      <thead><tr><th>When</th><th>Day</th><th>Source</th><th class="r">Distance</th><th class="r">Time</th><th class="r">Pace</th><th>Status</th></tr></thead>
+      <tbody>${runs.map((r) => `<tr>
+        <td>${fmtLocal(r.start_time)}</td><td>${r.race_day}</td><td class="muted">${r.source.toUpperCase()}</td>
+        <td class="r num">${dist(r.distance_m, 2)}</td><td class="r num">${duration(r.moving_s)}</td><td class="r num">${pace(r.moving_s, r.distance_m)}</td>
+        <td><span class="badge ${r.status}">${r.status}</span>${r.flags.length ? `<details style="padding:.3rem 0;border:0"><summary class="small" style="font-weight:600">${r.flags.length} check${r.flags.length > 1 ? 's' : ''}</summary>${flagList(r.flags)}${r.review_note ? `<p class="small">Official note: ${esc(r.review_note)}</p>` : ''}</details>` : ''}</td>
+      </tr>`).join('')}</tbody></table></div>`;
+  }
+
+  let timers = [];
+  function render() {
+    timers.forEach((stop) => stop());
+    $('content').innerHTML = `
+      ${raceCard(d.race)}
+      <div class="card"><h3>My runs</h3>${runsTable(d.runs)}</div>
+      <div class="card"><h3>My registrations</h3>${me.registrations.length ? `<div class="table-wrap"><table><thead><tr><th>Event</th><th>Bib</th><th>Status</th><th>Result</th></tr></thead><tbody>${
+        me.registrations.map((x) => `<tr><td><a href="/event.html?e=${x.slug}">${esc(x.name)}</a></td><td>${x.bib}</td><td><span class="badge ${x.status}">${x.status}</span></td>
+          <td class="ink2">${x.final_place ? `Finished ${x.final_place}` : x.eliminated_day ? `Out on Day ${x.eliminated_day}` : '—'}</td></tr>`).join('')}</tbody></table></div>` : '<p class="muted">None yet.</p>'}</div>`;
+    timers = [];
+    if (d.race?.status === 'active') timers.push(countdown($('cd'), d.race.deadline + 999, { serverNow: d.race.server_now, small: true }));
+    document.querySelectorAll('.cd-up').forEach((n) => timers.push(countdown(n, +n.dataset.t, { small: true })));
+  }
+  render();
+  window.addEventListener('units', render);
+</script>
+</body>
+</html>

@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Run tracker · Last Legs Standing</title>
+  <meta name="theme-color" content="#0c0d0f">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="icon" href="/img/favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/img/icon-192.png">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body data-page="track">
+<main id="main">
+  <section class="section" style="padding-top:2rem"><div class="wrap" style="max-width:720px">
+    <div class="row between">
+      <div><div class="eyebrow" style="margin-bottom:.2rem">Built-in tracker</div><div id="day-line" class="ink2 small"></div></div>
+      <div class="small"><span class="gps-dot" id="gps-dot"></span><span id="gps-text">GPS off</span></div>
+    </div>
+
+    <div class="center" style="margin:1.6rem 0 1rem">
+      <div class="tracker-big" id="t-dist">0.00</div>
+      <div class="muted" id="t-unit" style="letter-spacing:.14em;text-transform:uppercase;font-weight:700">km</div>
+    </div>
+    <div class="tracker-display">
+      <div class="tile center"><div class="label">Time</div><div class="value" id="t-time">0:00</div></div>
+      <div class="tile center"><div class="label">Avg pace</div><div class="value" id="t-pace">–</div></div>
+      <div class="tile center"><div class="label">To go today</div><div class="value" id="t-left">–</div></div>
+    </div>
+    <div class="progress" style="margin-top:1rem"><span id="t-bar" style="width:0%"></span></div>
+
+    <div class="row" style="justify-content:center;margin:1.6rem 0">
+      <button class="btn lg" id="b-start">Start run</button>
+      <button class="btn ghost lg hidden" id="b-pause">Pause</button>
+      <button class="btn gold lg hidden" id="b-finish">Finish &amp; submit</button>
+      <button class="btn danger sm hidden" id="b-discard">Discard</button>
+    </div>
+    <div id="msg"></div>
+    <div class="map" id="map" style="height:280px"></div>
+
+    <div class="card" style="margin-top:1.5rem">
+      <h3>Before you go</h3>
+      <ul class="small ink2" style="padding-left:1.1rem;margin:0">
+        <li><b>Keep this page open and your screen on.</b> We ask your phone to stay awake, but most phones stop web GPS when the screen locks. For long runs, a watch or the Strava app is more reliable.</li>
+        <li>Add this page to your home screen (Share → <i>Add to Home Screen</i> on iPhone, ⋮ → <i>Install app</i> on Android) to use it like an app.</li>
+        <li>Your track is saved on your phone as you go, so a refresh won’t lose it.</li>
+        <li>The run must start and finish before the 23:59:59 UTC deadline. You’ll get a warning 15 minutes before.</li>
+      </ul>
+    </div>
+  </div></section>
+</main>
+<script type="module">
+  import { mountChrome, requireLogin, api, dist, pace, duration, getUnits, esc, KM_PER_MI } from '/js/common.js';
+  import { createMap } from '/js/map.js';
+  navigator.serviceWorker?.register('/sw.js');
+  await mountChrome();
+  await requireLogin();
+  const $ = (id) => document.getElementById(id);
+  const dash = await api('/dashboard');
+  const race = dash.race?.status === 'active' ? dash.race : null;
+  $('day-line').innerHTML = race
+    ? `Day ${race.day} · due ${dist(race.due_m, 0)} · already uploaded ${dist(race.done_m, 2)}`
+    : 'You’re not in a live race. You can still test the tracker, but runs can only be submitted during your race.';
+
+  const KEY = 'lls-track-v1';
+  const R = 6371008.8;
+  const hav = (a, b) => {
+    const r = Math.PI / 180, dLa = (b.lat - a.lat) * r, dLo = (b.lon - a.lon) * r;
+    const h = Math.sin(dLa / 2) ** 2 + Math.cos(a.lat * r) * Math.cos(b.lat * r) * Math.sin(dLo / 2) ** 2;
+    return 2 * R * Math.asin(Math.min(1, Math.sqrt(h)));
+  };
+
+  // state: { status: idle|running|paused, points: [], distance, movingMs, segStart }
+  let s = JSON.parse(localStorage.getItem(KEY) || 'null') || { status: 'idle', points: [], distance: 0, movingMs: 0, segStart: null };
+  const save = () => localStorage.setItem(KEY, JSON.stringify(s));
+  let watchId = null;
+  let wake = null;
+  let mapCtx = null;
+  let line = null;
+  let me = null;
+  let warned = false;
+
+  const elapsedMoving = () => s.movingMs + (s.status === 'running' && s.segStart ? Date.now() - s.segStart : 0);
+  function draw() {
+    const u = getUnits();
+    const v = u === 'mi' ? s.distance / 1000 / KM_PER_MI : s.distance / 1000;
+    $('t-dist').textContent = v.toFixed(2);
+    $('t-unit').textContent = u === 'mi' ? 'miles' : 'kilometers';
+    $('t-time').textContent = duration(elapsedMoving() / 1000);
+    $('t-pace').textContent = s.distance > 50 ? pace(elapsedMoving() / 1000, s.distance).replace(/ \/.+/, '') : '–';
+    if (race) {
+      const need = Math.max(0, race.due_m - race.done_m);
+      $('t-left').textContent = s.distance >= need ? '✓' : dist(need - s.distance, 2).replace(/ .+/, '');
+      $('t-bar').style.width = `${Math.min(100, need ? (s.distance / need) * 100 : 100)}%`;
+    }
+    $('b-start').classList.toggle('hidden', s.status !== 'idle');
+    $('b-pause').classList.toggle('hidden', s.status === 'idle');
+    $('b-pause').textContent = s.status === 'paused' ? 'Resume' : 'Pause';
+    $('b-finish').classList.toggle('hidden', s.status === 'idle');
+    $('b-discard').classList.toggle('hidden', s.status === 'idle');
+    // deadline warning
+    const now = new Date();
+    const deadline = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 23, 59, 59);
+    if (s.status !== 'idle' && deadline - now < 15 * 60_000 && !warned) {
+      warned = true;
+      msg('warn', 'Less than 15 minutes until the 23:59:59 UTC deadline. Finish and submit now!');
+      navigator.vibrate?.([300, 100, 300]);
+    }
+  }
+  function msg(kind, html) { $('msg').innerHTML = html ? `<div class="alert ${kind}" style="margin-bottom:1rem">${html}</div>` : ''; }
+
+  function gps(acc) {
+    const dot = $('gps-dot');
+    dot.className = `gps-dot ${acc == null ? '' : acc <= 15 ? 'good' : acc <= 35 ? 'weak' : 'bad'}`;
+    $('gps-text').textContent = acc == null ? 'GPS off' : `GPS ±${Math.round(acc)} m`;
+  }
+
+  async function ensureMap(lat, lon) {
+    if (mapCtx) return;
+    mapCtx = await createMap($('map'), { center: [lat, lon], zoom: 16 });
+    line = mapCtx.L.polyline(s.points.map((p) => [p.lat, p.lon]), { color: '#fc4c02', weight: 4 }).addTo(mapCtx.map);
+    me = mapCtx.L.circleMarker([lat, lon], { radius: 7, color: '#e2be45', fillOpacity: 1 }).addTo(mapCtx.map);
+  }
+
+  function onPos(pos) {
+    const { latitude: lat, longitude: lon, accuracy, altitude } = pos.coords;
+    gps(accuracy);
+    ensureMap(lat, lon).then(() => { me.setLatLng([lat, lon]); if (s.status === 'running') mapCtx.map.panTo([lat, lon]); });
+    if (s.status !== 'running' || accuracy > 35) return;
+    const p = { t: pos.timestamp || Date.now(), lat, lon, ele: altitude };
+    const prev = s.points[s.points.length - 1];
+    if (prev) {
+      const d = hav(prev, p);
+      if (d < 3) return; // ignore jitter while standing still
+      if (!prev.pauseAfter) s.distance += d;
+    }
+    s.points.push(p);
+    line?.addLatLng([lat, lon]);
+    save();
+  }
+
+  function startWatch() {
+    if (!('geolocation' in navigator)) return msg('error', 'This browser doesn’t support GPS.');
+    watchId = navigator.geolocation.watchPosition(onPos, (e) => { gps(null); msg('error', `GPS error: ${esc(e.message)}. Allow location access for this site.`); },
+      { enableHighAccuracy: true, maximumAge: 0, timeout: 20_000 });
+  }
+  async function keepAwake() {
+    try { wake = await navigator.wakeLock?.request('screen'); } catch { /* not supported */ }
+  }
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && s.status === 'running') keepAwake(); });
+
+  $('b-start').addEventListener('click', () => {
+    s = { status: 'running', points: [], distance: 0, movingMs: 0, segStart: Date.now() };
+    save(); msg(); keepAwake(); if (watchId === null) startWatch(); draw();
+  });
+  $('b-pause').addEventListener('click', () => {
+    if (s.status === 'running') {
+      s.movingMs += Date.now() - s.segStart; s.segStart = null; s.status = 'paused';
+      if (s.points.length) s.points[s.points.length - 1].pauseAfter = true;
+    } else { s.status = 'running'; s.segStart = Date.now(); keepAwake(); }
+    save(); draw();
+  });
+  $('b-discard').addEventListener('click', () => {
+    if (!confirmDiscard()) return;
+    localStorage.removeItem(KEY); s = { status: 'idle', points: [], distance: 0, movingMs: 0, segStart: null };
+    line?.setLatLngs([]); wake?.release?.(); msg(); draw();
+  });
+  let discardArmed = false;
+  function confirmDiscard() {
+    if (discardArmed) return true;
+    discardArmed = true; $('b-discard').textContent = 'Tap again to discard';
+    setTimeout(() => { discardArmed = false; $('b-discard').textContent = 'Discard'; }, 3000);
+    return false;
+  }
+  $('b-finish').addEventListener('click', async () => {
+    if (s.status === 'running') { s.movingMs += Date.now() - s.segStart; s.segStart = null; }
+    s.status = 'paused'; save(); draw();
+    if (!race) return msg('warn', 'You’re not in a live race, so this run can’t be submitted. Your track is kept until you discard it.');
+    if (s.points.length < 10) return msg('error', 'Not enough GPS points were recorded to submit this run.');
+    $('b-finish').disabled = true;
+    msg('ok', '<span class="spinner"></span> Submitting and verifying your run…');
+    const res = await api('/runs/track', { json: { points: s.points.map(({ t, lat, lon, ele }) => ({ t, lat, lon, ele })) }, allowError: true });
+    $('b-finish').disabled = false;
+    if (!res.data?.run) return msg('error', esc(res.data?.error || 'Submission failed. Your track is still saved. Try again.'));
+    const r = res.data.run;
+    const flags = r.flags.map((f) => `<li>${esc(f.detail)}</li>`).join('');
+    msg(r.status === 'rejected' ? 'error' : r.status === 'flagged' ? 'warn' : 'ok',
+      `<b>Run ${r.status}.</b> ${dist(r.distance_m, 2)} in ${duration(r.moving_s)}. Today: ${dist(res.data.today.done_m, 2)} of ${dist(res.data.today.due_m, 0)}${res.data.today.complete ? ' ✓ Day complete!' : ''}${flags ? `<ul class="small">${flags}</ul>` : ''}`);
+    localStorage.removeItem(KEY);
+    s = { status: 'idle', points: [], distance: 0, movingMs: 0, segStart: null };
+    race.done_m = res.data.today.done_m;
+    wake?.release?.(); draw();
+  });
+
+  if (s.status !== 'idle') { msg('warn', 'Restored your run in progress.'); startWatch(); keepAwake(); }
+  else startWatch();
+  setInterval(draw, 1000);
+  window.addEventListener('units', draw);
+  draw();
+</script>
+</body>
+</html>

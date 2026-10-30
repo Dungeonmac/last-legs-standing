@@ -1,0 +1,23 @@
+name = "last-legs-standing"
+pages_build_output_dir = "public"
+compatibility_date = "2025-09-01"
+
+# Cloudflare D1 database (SQLite). Locally this is emulated in .wrangler/state.
+# Before deploying: run `npx wrangler d1 create lls-db` and paste the real id here.
+[[d1_databases]]
+binding = "DB"
+database_name = "lls-db"
+database_id = "00000000-0000-0000-0000-000000000000"
+
+# Cloudflare R2 bucket for the original uploaded run files (GPX / TCX / FIT).
+[[r2_buckets]]
+binding = "UPLOADS"
+bucket_name = "lls-uploads"
+
+[vars]
+SITE_NAME = "Last Legs Standing"
+# Comma-separated emails that get admin rights.
+ADMIN_EMAILS = "admin@lastlegsstanding.test"
+# Secrets (set with `wrangler pages secret put NAME`, or in .dev.vars locally):
+#   STRIPE_SECRET_KEY, STRIPE_PUBLISHABLE_KEY  -> real card payments (otherwise demo mode)
+#   STRAVA_CLIENT_ID, STRAVA_CLIENT_SECRET     -> "Connect Strava" button

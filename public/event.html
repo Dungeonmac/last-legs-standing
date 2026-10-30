@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Event · Last Legs Standing</title>
+  <meta name="theme-color" content="#0c0d0f">
+  <link rel="icon" href="/img/favicon.svg" type="image/svg+xml">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body data-page="events">
+<main id="main">
+  <section class="page-head">
+    <div class="wrap">
+      <a href="/events.html" class="small">← All events</a>
+      <div class="row" style="margin-top:1rem" id="badges"></div>
+      <h1 class="display" style="font-size:clamp(2.4rem,6vw,4.4rem);margin-top:.6rem" id="title">Loading…</h1>
+      <p class="lead" id="desc"></p>
+    </div>
+  </section>
+  <section class="section" style="padding-top:2.5rem"><div class="wrap" id="content"><span class="spinner"></span></div></section>
+</main>
+<script type="module">
+  import { mountChrome, api, fmtDate, fmtLocal, fmtUTC, money, esc, dist, both, pace, duration, countdown } from '/js/common.js';
+  import { survivorsChart } from '/js/chart.js';
+  import { RULES } from '/js/legal.js';
+  mountChrome();
+
+  const slug = new URLSearchParams(location.search).get('e');
+  const $ = (id) => document.getElementById(id);
+  let data;
+  try { data = await api(`/events/${encodeURIComponent(slug)}`); }
+  catch (e) { $('title').textContent = 'Event not found'; $('content').innerHTML = `<div class="empty">${esc(e.message)}</div>`; throw e; }
+
+  if (data.kind === 'live') location.replace(`/live.html?event=${slug}`);
+  const ev = data.event;
+  document.title = `${ev.name} · Last Legs Standing`;
+  $('title').textContent = ev.name;
+  $('desc').textContent = ev.description || '';
+  $('badges').innerHTML = `<span class="badge ${ev.status}">${ev.status}</span>${ev.is_demo ? '<span class="badge demo">Sample data</span>' : ''}`;
+  const ord = (n) => `${n}${['st', 'nd', 'rd'][n - 1] || 'th'}`;
+
+  function renderUpcoming() {
+    $('content').innerHTML = `
+      <div class="split" style="align-items:start">
+        <div class="stack">
+          <div class="card raise">
+            <div class="eyebrow" style="margin-bottom:.6rem">Day 1 starts in</div>
+            <div id="cd"></div>
+            <p class="small ink2" style="margin-bottom:0">${fmtUTC(ev.start_ms)} · ${fmtLocal(ev.start_ms)} your time</p>
+          </div>
+          <div class="grid g2">
+            <div class="tile"><div class="label">Start day</div><div class="value" style="font-size:1.7rem">${fmtDate(ev.start_ms, 'UTC')}</div><div class="sub">Day 1 = 1 km (0.62 mi)</div></div>
+            <div class="tile"><div class="label">Sign-up fee</div><div class="value">${money(ev.fee_cents)}</div><div class="sub">Shirt + medal shipping included</div></div>
+            <div class="tile"><div class="label">Registered</div><div class="value">${data.registered}</div><div class="sub">runners so far</div></div>
+            <div class="tile"><div class="label">Daily deadline</div><div class="value" style="font-size:1.7rem">23:59:59 UTC</div><div class="sub">${fmtLocal(Date.UTC(2000, 0, 1, 23, 59, 59), false)} your time</div></div>
+          </div>
+          <div class="card">
+            <h3>Prizes</h3>
+            <div class="table-wrap"><table><tbody>${ev.prizes.map((p) => `<tr><td><span class="place p${p.place}">${p.place}</span></td><td><b>${ord(p.place)} place</b></td><td class="ink2">${esc(p.prize)}</td></tr>`).join('')}</tbody></table></div>
+          </div>
+          ${ev.registration_open ? `<a class="btn lg block" href="/signup.html?event=${ev.slug}">Sign up · ${money(ev.fee_cents)}</a>` : '<div class="alert warn">Registration is closed.</div>'}
+        </div>
+        <div class="card">
+          <h3>Rules at a glance</h3>
+          <ol style="padding-left:1.2rem" class="small ink2">${RULES.map(([t]) => `<li style="margin-bottom:.45rem"><b style="color:var(--ink)">${t}</b></li>`).join('')}</ol>
+          <a href="/#rules">Read the full rules →</a>
+        </div>
+      </div>`;
+    countdown($('cd'), ev.start_ms);
+  }
+
+  function renderPast() {
+    const d = data;
+    const podiumCls = ['first', 'second', 'third'];
+    const podium = [2, 1, 3].map((p) => d.podium.find((r) => r.final_place === p)).filter(Boolean);
+    $('content').innerHTML = `
+      ${ev.is_demo ? '<div class="demo-banner">These are generated sample results that show how a finished event is displayed. They are not real runners.</div>' : ''}
+      <div class="eyebrow">Final podium</div>
+      <div class="podium" style="margin-bottom:3rem">${podium.map((r) => `
+        <div class="step ${podiumCls[r.final_place - 1]}">
+          <div class="medal">${ord(r.final_place)}</div>
+          <h3 style="margin:.6rem 0 .2rem">${esc(r.name)}</h3>
+          <div class="muted small">${esc(r.country || '')} · Bib ${r.bib}</div>
+          <div class="num" style="margin-top:.6rem"><b>${dist(r.distance_m)}</b> total</div>
+          <div class="small ink2">${r.status === 'active' ? `Survived all ${d.days} days` : `Out on Day ${r.eliminated_day}`}</div>
+        </div>`).join('')}
+      </div>
+
+      <div class="grid g4">
+        <div class="tile"><div class="label">Runners</div><div class="value">${d.total_runners}</div><div class="sub">${d.rookies} first-timers · ${d.returning} returning</div></div>
+        <div class="tile"><div class="label">Race lasted</div><div class="value">${d.days} days</div><div class="sub">Final day: ${both(d.days * 1000, 0)}</div></div>
+        <div class="tile"><div class="label">Champion’s total</div><div class="value">${dist(d.winner_distance_m, 0)}</div><div class="sub">${both(d.winner_distance_m, 0)}</div></div>
+        <div class="tile"><div class="label">Run by everyone</div><div class="value">${dist(d.total_distance_m, 0)}</div><div class="sub">${d.total_runs.toLocaleString()} verified runs · ${d.disqualified} DQ</div></div>
+      </div>
+
+      <div class="card" style="margin-top:1.25rem">
+        <h3>Runners left after each day</h3>
+        <div id="chart"></div>
+      </div>
+
+      <div class="grid g2" style="margin-top:1.25rem;align-items:start">
+        <div class="card">
+          <div class="row between"><h3 style="margin:0">Final standings</h3><input id="search" placeholder="Search runner or country" style="max-width:220px;padding:.5rem .7rem"></div>
+          <div class="table-wrap" style="margin-top:1rem;max-height:520px"><table>
+            <thead><tr><th>#</th><th>Runner</th><th>Bib</th><th class="r">Lasted</th><th class="r">Total</th></tr></thead>
+            <tbody id="standings"></tbody></table></div>
+        </div>
+        <div class="card">
+          <h3>Fastest full-distance run each day</h3>
+          <div class="table-wrap" style="max-height:580px"><table>
+            <thead><tr><th>Day</th><th>Runner</th><th class="r">Pace</th></tr></thead>
+            <tbody id="fastest"></tbody></table></div>
+        </div>
+      </div>`;
+    survivorsChart($('chart'), d.survivors);
+    const row = (r) => `<tr><td>${r.final_place ? `<span class="place ${r.final_place <= 3 ? `p${r.final_place}` : ''}">${r.final_place}</span>` : '<span class="badge disqualified">DQ</span>'}</td>
+      <td><b>${esc(r.name)}</b> <span class="muted small">${esc(r.country || '')}</span></td><td class="muted">${r.bib}</td>
+      <td class="r num">${r.status === 'active' ? `${d.days} days ✓` : r.status === 'disqualified' ? 'DQ' : `${r.eliminated_day - 1} days`}</td><td class="r num">${dist(r.distance_m)}</td></tr>`;
+    const draw = (q = '') => {
+      const s = q.toLowerCase();
+      $('standings').innerHTML = d.standings.filter((r) => !s || `${r.name} ${r.country}`.toLowerCase().includes(s)).slice(0, 300).map(row).join('');
+    };
+    draw();
+    $('search').addEventListener('input', (e) => draw(e.target.value));
+    const drawFastest = () => {
+      $('fastest').innerHTML = d.fastest_by_day.map((f) => `<tr><td>Day ${f.race_day}</td><td>${esc(f.name)}</td><td class="r num">${pace(f.pace, 1000)}</td></tr>`).join('');
+    };
+    drawFastest();
+    window.addEventListener('units', () => { draw($('search').value); drawFastest(); });
+  }
+
+  data.kind === 'past' ? renderPast() : renderUpcoming();
+</script>
+</body>
+</html>

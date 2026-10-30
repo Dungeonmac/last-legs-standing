@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Admin · Last Legs Standing</title>
+  <meta name="theme-color" content="#0c0d0f">
+  <meta name="robots" content="noindex">
+  <link rel="icon" href="/img/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body data-page="admin">
+<main id="main">
+  <section class="page-head"><div class="wrap">
+    <div class="eyebrow">Race officials</div>
+    <h1 class="display" style="font-size:clamp(2.4rem,6vw,4rem)">Admin</h1>
+  </div></section>
+  <section class="section" style="padding-top:2.5rem"><div class="wrap stack" id="content"><span class="spinner"></span></div></section>
+
+  <dialog id="run-dialog"><div class="modal-head"><h2>Run review</h2><button class="close-x" onclick="this.closest('dialog').close()" aria-label="Close">×</button></div>
+    <div class="modal-body" id="run-body"></div></dialog>
+</main>
+<script type="module">
+  import { mountChrome, requireLogin, api, fmtLocal, fmtDate, esc, dist, pace, duration, money, toast } from '/js/common.js';
+  import { drawTrack } from '/js/map.js';
+  await mountChrome();
+  const me = await requireLogin();
+  const $ = (id) => document.getElementById(id);
+  if (!me.user.isAdmin) { $('content').innerHTML = '<div class="empty">Admins only.</div>'; throw new Error('not admin'); }
+
+  async function load() {
+    const d = await api('/admin/overview');
+    const pct = (a, b) => (b ? Math.round((a / b) * 100) : 0);
+    $('content').innerHTML = `
+      <div class="card">
+        <h3>Sign-ups: first-time vs returning</h3>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Event</th><th>Status</th><th class="r">Registered</th><th class="r">First time</th><th class="r">Returning</th><th class="r">Still active</th><th class="r">DQ</th><th class="r">Revenue</th><th></th></tr></thead>
+          <tbody>${d.events.map((e) => { const s = e.stats; return `<tr>
+            <td><b>${esc(e.name)}</b>${e.is_demo ? ' <span class="badge demo">demo</span>' : ''}<div class="small muted">${fmtDate(e.start_ms, 'UTC')}</div></td>
+            <td><span class="badge ${e.status}">${e.status}</span></td>
+            <td class="r num">${s.total || 0}</td>
+            <td class="r num">${s.first_timers || 0} <span class="muted">(${pct(s.first_timers, s.total)}%)</span></td>
+            <td class="r num">${s.returners || 0} <span class="muted">(${pct(s.returners, s.total)}%)</span></td>
+            <td class="r num">${s.active ?? '–'}</td><td class="r num">${s.dq || 0}</td>
+            <td class="r num">${money(s.revenue_cents || 0)}</td>
+            <td><button class="btn ghost sm" data-runners="${e.slug}">Runners</button></td></tr>`; }).join('')}</tbody></table></div>
+      </div>
+
+      <div class="card">
+        <div class="row between"><h3 style="margin:0">Review queue</h3><span class="muted small">${d.queue.length} run(s) flagged or auto-rejected</span></div>
+        <p class="small ink2">Flagged runs count provisionally until reviewed. Approving or rejecting a run on a day that has already been processed automatically eliminates or reinstates the runner.</p>
+        ${d.queue.length ? `<div class="table-wrap"><table>
+          <thead><tr><th>Runner</th><th>Event / day</th><th class="r">Distance</th><th class="r">Pace</th><th class="r">Max</th><th>Risk</th><th>Why</th><th></th></tr></thead>
+          <tbody>${d.queue.map((q) => `<tr>
+            <td><b>${esc(q.runner)}</b><div class="small muted">#${q.bib} · ${esc(q.email)}</div></td>
+            <td>${esc(q.event_name)}<div class="small muted">Day ${q.race_day} · ${q.source}</div></td>
+            <td class="r num">${dist(q.distance_m, 2)}</td><td class="r num">${pace(q.moving_s, q.distance_m)}</td><td class="r num">${q.max_speed_kmh} km/h</td>
+            <td><span class="badge ${q.status}">${q.status} ${q.risk_score}</span></td>
+            <td class="small" style="white-space:normal;min-width:240px">${q.flags.map((f) => `<div><b>${f.code}</b> ${esc(f.detail)}</div>`).join('')}</td>
+            <td><div class="row" style="gap:.4rem;flex-wrap:nowrap">
+              <button class="btn ghost sm" data-view="${q.id}">Map</button>
+              <button class="btn good sm" data-review="${q.id}" data-action="approve">Approve</button>
+              <button class="btn danger sm" data-review="${q.id}" data-action="reject">Reject</button></div></td></tr>`).join('')}</tbody></table></div>`
+          : '<div class="empty">Nothing to review. 🎉</div>'}
+      </div>
+      <div id="runners"></div>`;
+  }
+
+  async function showRunners(slug) {
+    const d = await api(`/admin/events/${slug}/registrations`);
+    $('runners').innerHTML = `<div class="card">
+      <div class="row between"><h3 style="margin:0">${esc(d.event.name)}: runners</h3><input id="rq" placeholder="Search" style="max-width:220px;padding:.5rem .7rem"></div>
+      <div class="table-wrap" style="margin-top:1rem;max-height:600px"><table>
+        <thead><tr><th>Bib</th><th>Runner</th><th>Email</th><th>First time?</th><th>Shirt</th><th>Status</th><th class="r">Total</th><th></th></tr></thead>
+        <tbody id="rt"></tbody></table></div></div>`;
+    const draw = (q = '') => {
+      $('rt').innerHTML = d.registrations.filter((r) => !q || `${r.full_name} ${r.email} ${r.bib}`.toLowerCase().includes(q.toLowerCase())).slice(0, 400).map((r) => `<tr>
+        <td>${r.bib}</td><td><b>${esc(r.full_name)}</b><div class="small muted">${esc(r.country || '')}</div></td><td class="small">${esc(r.email)}</td>
+        <td>${r.first_time ? 'First time' : 'Returning'}</td><td>${esc(r.shirt_size || '')}</td>
+        <td><span class="badge ${r.status}">${r.status}</span><div class="small muted" style="white-space:normal;max-width:240px">${esc(r.status_reason || '')}</div></td>
+        <td class="r num">${dist(r.distance_m)}</td>
+        <td>${r.status === 'disqualified' || r.status === 'eliminated'
+          ? `<button class="btn good sm" data-reg="${r.id}" data-act="reinstate">Reinstate</button>`
+          : `<button class="btn danger sm" data-reg="${r.id}" data-act="disqualify">Disqualify</button>`}</td></tr>`).join('');
+    };
+    draw();
+    $('rq').addEventListener('input', (e) => draw(e.target.value));
+    currentSlug = slug;
+    $('runners').scrollIntoView({ behavior: 'smooth' });
+  }
+  let currentSlug = null;
+
+  $('content').addEventListener('click', async (e) => {
+    const reg = e.target.closest('[data-reg]');
+    if (reg) {
+      let reason = '';
+      if (reg.dataset.act === 'disqualify') {
+        reason = window.prompt('Reason for disqualification (shown to the runner):');
+        if (!reason) return;
+      }
+      await api(`/admin/registrations/${reg.dataset.reg}/status`, { json: { action: reg.dataset.act, reason } });
+      toast(`Runner ${reg.dataset.act === 'disqualify' ? 'disqualified' : 'reinstated'}.`);
+      return showRunners(currentSlug);
+    }
+    const r = e.target.closest('[data-review]');
+    const v = e.target.closest('[data-view]');
+    const ru = e.target.closest('[data-runners]');
+    if (r) {
+      await api(`/admin/runs/${r.dataset.review}/review`, { json: { action: r.dataset.action, note: r.dataset.action === 'approve' ? 'Approved after review' : 'Rejected after review' } });
+      toast(`Run ${r.dataset.action}d.`);
+      load();
+    } else if (v) {
+      const run = await api(`/runs/${v.dataset.view}`);
+      $('run-body').innerHTML = `<p class="small ink2">${fmtLocal(run.start_time)} · ${dist(run.distance_m, 2)} · ${duration(run.moving_s)} · max ${run.max_speed_kmh} km/h</p><div class="map" id="rmap"></div>`;
+      $('run-dialog').showModal();
+      drawTrack($('rmap'), run.track);
+    } else if (ru) showRunners(ru.dataset.runners);
+  });
+  load();
+</script>
+</body>
+</html>

@@ -1,0 +1,17 @@
+{
+  "name": "last-legs-standing",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Last Legs Standing - an annual worldwide +1 km per day elimination running challenge.",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler pages dev public --port 8788",
+    "db:schema": "wrangler d1 execute lls-db --local --file schema.sql",
+    "db:seed": "node scripts/seed.mjs && wrangler d1 execute lls-db --local --file scripts/seed.sql",
+    "db:reset": "npm run db:schema && npm run db:seed",
+    "sample-gpx": "node scripts/sample-gpx.mjs"
+  },
+  "devDependencies": {
+    "wrangler": "^4.156.0"
+  }
+}

@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Upload a run · Last Legs Standing</title>
+  <meta name="theme-color" content="#0c0d0f">
+  <link rel="icon" href="/img/favicon.svg" type="image/svg+xml">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body data-page="upload">
+<main id="main">
+  <section class="page-head"><div class="wrap">
+    <div class="eyebrow">Submit today’s run</div>
+    <h1 class="display" style="font-size:clamp(2.4rem,6vw,4rem)">Upload a run</h1>
+    <div id="status-line" class="lead"></div>
+  </div></section>
+
+  <section class="section" style="padding-top:2.5rem"><div class="wrap">
+    <div id="gate"></div>
+    <div id="upload-ui" class="hidden">
+      <div class="grid g2" style="align-items:start">
+        <div class="stack">
+          <label class="dropzone" id="drop" for="file">
+            <div style="font-size:2.2rem" aria-hidden="true">⬆</div>
+            <b>Drop your run files here</b>
+            <p class="muted small" style="margin:.3rem 0 1rem">.gpx, .tcx or .fit from any watch or app · multiple files OK (split runs)</p>
+            <span class="btn sm">Choose files</span>
+            <input type="file" id="file" accept=".gpx,.tcx,.fit" multiple class="hidden">
+          </label>
+          <div id="results" class="stack"></div>
+        </div>
+
+        <div class="stack">
+          <div class="card">
+            <div class="row between"><h3 style="margin:0">Strava</h3><span class="badge" id="strava-badge" style="color:#fc4c02">Sync</span></div>
+            <div id="strava"></div>
+          </div>
+          <div class="card">
+            <h3>Garmin, Coros, Apple Watch &amp; others</h3>
+            <p class="ink2 small">Direct Garmin Connect sync is coming. For now, export the activity file and drop it on the left. Every major platform can export one:</p>
+            <details><summary>Strava (website)</summary><p class="small">Open the activity → the <b>⋯</b> menu → <b>Export GPX</b> (or <b>Export Original</b> for the .fit file).</p></details>
+            <details><summary>Garmin Connect</summary><p class="small">Open the activity on connect.garmin.com → gear icon ⚙ → <b>Export Original</b> (.fit, zipped: unzip it first) or <b>Export to GPX</b>. In the mobile app: activity → ⋯ → Export.</p></details>
+            <details><summary>Coros</summary><p class="small">Coros app → activity → share icon → <b>Export data</b> → choose <b>.fit</b> or <b>.gpx</b>.</p></details>
+            <details><summary>Apple Watch / Apple Health</summary><p class="small">Use a free exporter app such as <b>HealthFit</b> or <b>RunGap</b> to export the workout as .fit or .gpx. Or record with our <a href="/track.html">built-in tracker</a> or Strava on your iPhone.</p></details>
+            <details><summary>Suunto · Polar · Wahoo · others</summary><p class="small">Suunto app: activity → ⋯ → <b>Export .fit</b>. Polar Flow (web): training session → <b>Export session</b> → GPX/TCX. Wahoo: activity → share → .fit. Most other apps have “Export GPX”.</p></details>
+            <p class="small muted" style="margin-bottom:0">Treadmill or manually entered activities have no GPS track and can’t be accepted.</p>
+          </div>
+          <div class="card">
+            <h3>How runs are checked</h3>
+            <ul class="small ink2" style="padding-left:1.1rem;margin:0">
+              <li>The run must start and finish inside today’s race day (UTC). Old runs are rejected.</li>
+              <li>Speeds above 25 km/h for more than a minute are treated as a vehicle or bike.</li>
+              <li>Every file and GPS track is fingerprinted, so the same run can’t be uploaded twice.</li>
+              <li>Overlapping runs, GPS teleports and computer-generated tracks are flagged.</li>
+              <li>Flagged runs count provisionally until a race official reviews them.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div></section>
+</main>
+<script type="module">
+  import { mountChrome, requireLogin, api, fmtLocal, fmtUTC, esc, dist, both, pace, duration, countdown } from '/js/common.js';
+  import { drawTrack } from '/js/map.js';
+  await mountChrome();
+  await requireLogin();
+  const $ = (id) => document.getElementById(id);
+  let dash = await api('/dashboard');
+  const config = await api('/config');
+  const params = new URLSearchParams(location.search);
+
+  function statusLine() {
+    const r = dash.race;
+    if (!r) return 'You’re not in a race that’s live right now.';
+    if (r.status !== 'active') return `You’re out of ${esc(r.event.name)}: ${esc(r.status_reason || r.status)}.`;
+    const left = Math.max(0, r.due_m - r.done_m);
+    return `<b>Day ${r.day}</b> · due today <b class="accent">${both(r.due_m, 0)}</b> · uploaded ${dist(r.done_m, 2)}
+      ${left ? `· <b>${dist(left, 2)} to go</b>` : '· <b style="color:var(--good)">✓ complete</b>'}
+      <div id="cd" style="margin-top:1rem"></div><div class="small muted" style="margin-top:.4rem">Deadline ${fmtUTC(r.deadline, false)} · ${fmtLocal(r.deadline)} your time</div>`;
+  }
+  let stopCd = () => {};
+  function refreshHeader() {
+    $('status-line').innerHTML = statusLine();
+    stopCd();
+    if (dash.race?.status === 'active') stopCd = countdown($('cd'), dash.race.deadline + 999, { serverNow: dash.race.server_now, small: true });
+  }
+  refreshHeader();
+
+  if (!dash.race || dash.race.status !== 'active') {
+    $('gate').innerHTML = `<div class="empty">${dash.race ? 'Uploads are closed for you in this race.' : 'Uploads open when your race starts. <a href="/account.html">Go to my race</a>'}</div>`;
+  } else {
+    $('upload-ui').classList.remove('hidden');
+  }
+
+  // ---- results
+  function resultCard(name, res) {
+    const run = res?.run;
+    const card = document.createElement('div');
+    card.className = 'card';
+    if (!run) {
+      card.innerHTML = `<div class="row between"><b>${esc(name)}</b><span class="badge rejected">Error</span></div><p class="alert error" style="margin-top:.8rem">${esc(res?.error || 'Upload failed.')}</p>`;
+      return card;
+    }
+    const msg = { approved: 'Accepted. This run counts toward today.', flagged: 'Accepted for now, but flagged for review by a race official. It counts provisionally.', rejected: 'Rejected. This run does not count.' }[run.status];
+    card.innerHTML = `
+      <div class="row between"><b>${esc(name)}</b><span class="badge ${run.status}">${run.status}</span></div>
+      <p class="small ${run.status === 'rejected' ? 'accent' : 'ink2'}" style="margin:.4rem 0 1rem">${msg}</p>
+      <div class="grid" style="gap:.6rem;grid-template-columns:repeat(auto-fit,minmax(140px,1fr))">
+        <div class="tile"><div class="label">Distance</div><div class="value" style="font-size:1.6rem">${dist(run.distance_m, 2)}</div></div>
+        <div class="tile"><div class="label">Moving time</div><div class="value" style="font-size:1.6rem">${duration(run.moving_s)}</div></div>
+        <div class="tile"><div class="label">Pace</div><div class="value" style="font-size:1.6rem">${pace(run.moving_s, run.distance_m)}</div></div>
+        <div class="tile"><div class="label">Started</div><div class="value" style="font-size:1.05rem;font-stretch:100%">${fmtLocal(run.start_time)}</div></div>
+      </div>
+      ${run.flags.length ? `<ul class="flag-list">${run.flags.map((f) => `<li class="${f.hard ? 'hard' : ''}"><b>${f.code.replace(/_/g, ' ')}</b>: ${esc(f.detail)}</li>`).join('')}</ul>` : ''}
+      <div class="map" style="margin-top:1rem"></div>
+      <p class="small ink2" style="margin:.8rem 0 0">Today: <b>${dist(res.today.done_m, 2)}</b> of ${dist(res.today.due_m, 0)} ${res.today.complete ? '<b style="color:var(--good)">✓ Day complete. See you tomorrow!</b>' : ''}</p>`;
+    setTimeout(() => drawTrack(card.querySelector('.map'), run.track), 0);
+    return card;
+  }
+
+  async function afterUpload(res) {
+    if (res?.today) {
+      dash.race.done_m = res.today.done_m;
+      refreshHeader();
+    }
+  }
+
+  async function uploadFiles(files) {
+    for (const f of files) {
+      const placeholder = document.createElement('div');
+      placeholder.className = 'card';
+      placeholder.innerHTML = `<span class="spinner"></span> Checking <b>${esc(f.name)}</b>…`;
+      $('results').prepend(placeholder);
+      const fd = new FormData();
+      fd.append('file', f);
+      const r = await fetch('/api/runs/upload', { method: 'POST', body: fd, credentials: 'same-origin' });
+      const data = await r.json().catch(() => ({ error: 'Upload failed.' }));
+      placeholder.replaceWith(resultCard(f.name, data));
+      await afterUpload(data);
+    }
+  }
+  $('file').addEventListener('change', (e) => { uploadFiles([...e.target.files]); e.target.value = ''; });
+  const drop = $('drop');
+  ['dragenter', 'dragover'].forEach((t) => drop.addEventListener(t, (e) => { e.preventDefault(); drop.classList.add('over'); }));
+  ['dragleave', 'drop'].forEach((t) => drop.addEventListener(t, (e) => { e.preventDefault(); drop.classList.remove('over'); }));
+  drop.addEventListener('drop', (e) => uploadFiles([...e.dataTransfer.files]));
+
+  // ---- Strava
+  async function renderStrava() {
+    const box = $('strava');
+    if (params.get('strava') === 'connected') box.insertAdjacentHTML('beforebegin', '<div class="alert ok small">Strava connected.</div>');
+    if (!config.strava) {
+      box.innerHTML = `<p class="ink2 small">One-tap Strava import is being set up and will appear here soon. Until then, export your run from Strava as a GPX file (see the instructions below) and upload it.</p>
+        <button class="btn sm" disabled style="background:#fc4c02">Connect with Strava</button>`;
+      return;
+    }
+    if (!dash.strava.connected) {
+      box.innerHTML = `<p class="ink2 small">Connect once, then import any of today’s runs with one tap. We only read the activities you choose.</p><a class="btn sm" href="/api/strava/connect">Connect with Strava</a>`;
+      return;
+    }
+    box.innerHTML = '<span class="spinner"></span>';
+    try {
+      const { activities } = await api('/strava/activities');
+      box.innerHTML = activities.length
+        ? `<p class="small ink2">Today’s activities on Strava:</p>${activities.map((a) => `
+          <div class="row between" style="padding:.6rem 0;border-bottom:1px solid var(--hair)">
+            <div><b>${esc(a.name)}</b><div class="small muted">${esc(a.sport_type)} · ${dist(a.distance_m, 2)} · ${duration(a.moving_s)}</div></div>
+            <button class="btn sm" data-id="${a.id}">Import</button></div>`).join('')}`
+        : '<p class="small ink2">No activities on Strava yet today. Once your watch syncs, refresh this page.</p>';
+      box.querySelectorAll('button[data-id]').forEach((b) => b.addEventListener('click', async () => {
+        b.disabled = true;
+        b.innerHTML = '<span class="spinner"></span>';
+        const res = await api('/strava/import', { json: { id: b.dataset.id }, allowError: true });
+        $('results').prepend(resultCard(`Strava: ${b.closest('.row').querySelector('b').textContent}`, res.data));
+        await afterUpload(res.data);
+        b.textContent = 'Imported';
+      }));
+    } catch (e) {
+      box.innerHTML = `<p class="alert error small">${esc(e.message)}</p>`;
+    }
+  }
+  if (dash.race?.status === 'active') renderStrava();
+</script>
+</body>
+</html>

@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Live race · Last Legs Standing</title>
+  <meta name="theme-color" content="#0c0d0f">
+  <link rel="icon" href="/img/favicon.svg" type="image/svg+xml">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body data-page="live">
+<main id="main">
+  <div id="root"><section class="section"><div class="wrap"><span class="spinner"></span></div></section></div>
+</main>
+<script type="module">
+  import { mountChrome, api, fmtLocal, fmtUTC, fmtDate, esc, dist, both, pace, duration, countdown, money } from '/js/common.js';
+  import { survivorsChart } from '/js/chart.js';
+  const me = await mountChrome();
+  const root = document.getElementById('root');
+  const params = new URLSearchParams(location.search);
+  let stopCountdown = () => {};
+
+  function renderNone(next) {
+    root.innerHTML = `
+      <section class="page-head"><div class="wrap">
+        <div class="eyebrow">Live race</div>
+        <h1 class="display" style="font-size:clamp(2.6rem,6vw,4.4rem)">No race in progress.</h1>
+        <p class="lead">There isn’t a Last Legs Standing race running right now. When the next edition starts, this page shows live standings, eliminations and the daily countdown.</p>
+      </div></section>
+      <section class="section"><div class="wrap">
+        ${next ? `<div class="card raise" style="max-width:720px">
+          <div class="eyebrow">Next up: ${esc(next.name)}</div>
+          <div id="cd"></div>
+          <p class="ink2">Day 1 starts ${fmtUTC(next.start_ms)} (${fmtLocal(next.start_ms)} your time).</p>
+          <div class="row"><a class="btn" href="/signup.html?event=${next.slug}">Sign up · ${money(next.fee_cents)}</a><a class="btn ghost" href="/events.html#past">See past results</a></div>
+        </div>` : '<div class="empty">No upcoming event has been announced yet.</div>'}
+        ${params.get('state') === 'none' ? '<p class="small muted" style="margin-top:2rem">You’re previewing the “no race” state. <a href="/live.html">Back to the live demo →</a></p>' : ''}
+      </div></section>`;
+    if (next) countdown(document.getElementById('cd'), next.start_ms);
+  }
+
+  function render(d) {
+    const due = d.due_m;
+    const f = d.fastest_today;
+    const outPct = d.total_runners ? Math.round((1 - d.runners_left / d.total_runners) * 100) : 0;
+    root.innerHTML = `
+      <section class="page-head"><div class="wrap">
+        <div class="row" style="gap:.6rem"><span class="badge live">● Live</span>${d.event.is_demo ? '<span class="badge demo">Demo data</span>' : ''}<span class="muted small">Updates automatically every minute</span></div>
+        <h1 class="display" style="font-size:clamp(2.4rem,6vw,4.4rem);margin:.8rem 0 .3rem">${esc(d.event.name)}</h1>
+        <p class="lead" style="margin:0">Started ${fmtDate(d.event.start_ms, 'UTC')} · ${d.runners_left} of ${d.total_runners} runners still standing</p>
+        ${d.event.is_demo ? '<div class="demo-banner">This is a demo race with generated runners so you can see how the live page works. <a href="/live.html?state=none">Preview the “no race in progress” screen →</a></div>' : ''}
+      </div></section>
+
+      <section class="section" style="padding-top:2.5rem"><div class="wrap">
+        <div class="grid g2" style="align-items:stretch">
+          <div class="tile hero-tile">
+            <div class="label">Today</div>
+            <div class="value" style="font-size:clamp(4rem,10vw,6.5rem);line-height:.9">Day ${d.day}</div>
+            <div class="sub" style="font-size:1.15rem;margin-top:.6rem">Distance due today: <b class="accent">${dist(due, 0, 'km')}</b> / <b>${dist(due, 2, 'mi')}</b></div>
+            <div class="sub">Tomorrow: ${both(due + 1000, 0)}</div>
+          </div>
+          <div class="tile">
+            <div class="label">Time left to submit today’s run</div>
+            <div id="cd" style="margin:.7rem 0"></div>
+            <div class="sub">Deadline: <b>${fmtUTC(d.window.deadline, false)}</b></div>
+            <div class="sub">Your time: <b>${fmtLocal(d.window.deadline)}</b></div>
+          </div>
+        </div>
+
+        <div class="grid g4" style="margin-top:1.25rem">
+          <div class="tile"><div class="label">Total runners</div><div class="value">${d.total_runners}</div><div class="sub">${d.rookies} first-timers</div></div>
+          <div class="tile"><div class="label">Runners left</div><div class="value accent">${d.runners_left}</div><div class="sub">${outPct}% of the field is out</div></div>
+          <div class="tile"><div class="label">Eliminated on Day ${Math.max(1, d.day - 1)}</div><div class="value">${d.day > 1 ? d.eliminated_last_day : 0}</div><div class="sub">${d.disqualified} disqualified so far</div></div>
+          <div class="tile"><div class="label">Done for today</div><div class="value">${d.completed_today}</div><div class="sub">of ${d.runners_left} have run ${dist(due, 0)}</div></div>
+        </div>
+
+        <div class="grid g2" style="margin-top:1.25rem">
+          <div class="tile">
+            <div class="label">Fastest run today (full distance)</div>
+            ${f ? `<div class="value" style="font-size:2rem">${esc(f.name)} <span class="muted" style="font-size:1rem;font-stretch:100%">${esc(f.country || '')}</span></div>
+              <div class="sub">${dist(f.distance_m, 2)} in <b>${duration(f.moving_s)}</b> · ${pace(f.moving_s, f.distance_m)}</div>`
+              : '<div class="value" style="font-size:1.6rem">No full-distance runs yet</div><div class="sub">Check back as runners upload.</div>'}
+          </div>
+          <div class="tile">
+            <div class="label">Distance run by all runners</div>
+            <div class="value">${dist(d.total_distance_m, 0)}</div>
+            <div class="sub">Leader so far: <b>${esc(d.leaderboard[0]?.name || '—')}</b> with ${dist(d.leaderboard[0]?.distance_m || 0)}</div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top:1.25rem">
+          <h3>Runners left after each day</h3>
+          <div id="chart"></div>
+        </div>
+
+        <div class="card" style="margin-top:1.25rem">
+          <div class="row between"><h3 style="margin:0">Leaderboard: total distance</h3><span class="muted small">Top 25</span></div>
+          <div class="table-wrap" style="margin-top:1rem"><table>
+            <thead><tr><th>#</th><th>Runner</th><th>Bib</th><th>Status</th><th class="r">Total distance</th><th class="r">Moving time</th></tr></thead>
+            <tbody>${d.leaderboard.map((r, i) => `<tr><td><span class="place">${i + 1}</span></td><td><b>${esc(r.name)}</b> <span class="muted small">${esc(r.country || '')}</span></td>
+              <td class="muted">${r.bib}</td><td><span class="badge ${r.status}">${r.status === 'eliminated' ? `out day ${r.eliminated_day}` : r.status}</span></td>
+              <td class="r num"><b>${dist(r.distance_m)}</b></td><td class="r num">${duration(r.moving_s)}</td></tr>`).join('')}</tbody></table></div>
+        </div>
+      </div></section>`;
+    stopCountdown();
+    stopCountdown = countdown(document.getElementById('cd'), d.window.deadline + 999, { serverNow: d.server_now, small: true, onDone: () => setTimeout(load, 3000) });
+    survivorsChart(document.getElementById('chart'), d.survivors);
+  }
+
+  let last;
+  async function load() {
+    if (params.get('state') === 'none') {
+      const ev = await api('/events');
+      return renderNone(ev.upcoming[0]);
+    }
+    const d = await api(`/live${params.get('event') ? `?event=${encodeURIComponent(params.get('event'))}` : ''}`);
+    last = d;
+    d.live ? render(d) : renderNone(d.next);
+  }
+  await load();
+  setInterval(() => { if (!document.hidden && params.get('state') !== 'none') load(); }, 60_000);
+  window.addEventListener('units', () => last?.live && render(last));
+</script>
+</body>
+</html>
