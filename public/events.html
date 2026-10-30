@@ -34,17 +34,18 @@
 <script type="module">
   import { mountChrome, api, fmtDate, money, esc, dist } from '/js/common.js';
   mountChrome();
-  const data = await api('/events');
+  const [data, config] = await Promise.all([api('/events'), api('/config')]);
+  const regOpen = (e) => e.registration_open && config.registrationOpen;
   const list = document.getElementById('list');
 
   const prizeLine = (e) => e.prizes.map((p) => `${p.place}${['st', 'nd', 'rd'][p.place - 1] || 'th'}: ${esc(p.prize)}`).join(' · ');
   const upcomingCard = (e) => `
     <a class="event-card" href="/event.html?e=${e.slug}">
-      <div class="top"><div class="badges"><span class="badge upcoming">Upcoming</span>${e.registration_open ? '<span class="badge open">Registration open</span>' : ''}</div></div>
+      <div class="top"><div class="badges"><span class="badge upcoming">Upcoming</span>${regOpen(e) ? '<span class="badge open">Registration open</span>' : '<span class="badge upcoming">Registration opens soon</span>'}</div></div>
       <div class="body">
         <h3>${esc(e.name)}</h3>
         <p class="ink2 small" style="margin:0">${esc(e.tagline || '')}</p>
-        <dl class="kv"><dt>Day 1</dt><dd>${fmtDate(e.start_ms, 'UTC')}</dd><dt>Entry fee</dt><dd>${money(e.fee_cents)}</dd><dt>Prizes</dt><dd>${prizeLine(e)}</dd><dt>Registered</dt><dd>${e.registered} runners</dd></dl>
+        <dl class="kv"><dt>Day 1</dt><dd>${fmtDate(e.start_ms, 'UTC')}</dd><dt>Entry fee</dt><dd>${money(e.fee_cents)}</dd><dt>Prizes</dt><dd>${prizeLine(e)}</dd>${regOpen(e) ? `<dt>Registered</dt><dd>${e.registered} runners</dd>` : ''}</dl>
         <span class="btn sm" style="margin-top:auto;align-self:flex-start">View details</span>
       </div>
     </a>`;

@@ -131,9 +131,9 @@ const events = [
     simulateThrough: 18, lastProcessed: 17, today: 18, now,
   },
   {
-    id: 3, slug: 'lls-2027', name: 'Last Legs Standing 2027', tagline: 'Every day, one more kilometer.', start_date: '2027-03-01',
+    id: 3, slug: 'lls-2027', name: 'Last Legs Standing 2027: The First Stand', tagline: 'The first edition. One more kilometer a day until the first champion is crowned.', start_date: '2027-03-01',
     status: 'upcoming', registration_open: 1, last_processed_day: 0, ended_day: null, is_demo: 0,
-    description: 'The annual worldwide elimination challenge. Run anywhere on Earth. Day 1 is 1 km, Day 2 is 2 km, and the distance keeps climbing by 1 km a day until only one runner is left.',
+    description: 'The inaugural Last Legs Standing. Runners all over the world start together on March 1, 2027 with 1 km, and the distance climbs by 1 km every day until only one runner is left. History starts here: the first champion’s name goes in the record books for good.',
     prizes: [{ place: 1, prize: 'To be announced' }, { place: 2, prize: 'To be announced' }, { place: 3, prize: 'To be announced' }],
   },
 ];

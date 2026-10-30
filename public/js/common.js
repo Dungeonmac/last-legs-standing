@@ -152,7 +152,7 @@ const showSignup = (me) => !!me.raceSignupOpen || (!!me.user?.isAdmin && demoOn(
 function header(page, me) {
   const u = getUnits();
   const links = NAV.map(([href, label, key]) =>
-    `<a href="${href}" ${key === page ? 'aria-current="page"' : ''} class="${key === 'live' ? 'live-dot' : ''}">${label}</a>`).join('');
+    `<a href="${href}" ${key === page ? 'aria-current="page"' : ''} ${key === 'live' ? 'data-live-link' : ''}>${label}</a>`).join('');
   const account = me.user
     ? `<a href="/upload.html" ${page === 'upload' ? 'aria-current="page"' : ''}>Upload run</a>
        <a href="/track.html" ${page === 'track' ? 'aria-current="page"' : ''}>Tracker</a>
@@ -247,7 +247,7 @@ export async function mountChrome() {
   });
   document.querySelectorAll('.units button').forEach((b) => b.addEventListener('click', () => setUnits(b.dataset.u)));
   api('/live').then((l) => {
-    if (!l.live) document.querySelector('.nav .live-dot')?.classList.remove('live-dot');
+    if (l.live) document.querySelector('.nav [data-live-link]')?.classList.add('live-dot');
   }).catch(() => {});
   return me;
 }

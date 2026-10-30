@@ -1,0 +1,3 @@
+-- Name the first real race (live database). Run once:
+-- npx wrangler d1 execute lls-db --remote --file scripts/migrations/2026-10-30-first-stand.sql
+UPDATE events SET name = 'Last Legs Standing 2027: The First Stand', tagline = 'The first edition. One more kilometer a day until the first champion is crowned.', description = 'The inaugural Last Legs Standing. Runners all over the world start together on March 1, 2027 with 1 km, and the distance climbs by 1 km every day until only one runner is left. History starts here: the first champion’s name goes in the record books for good.', start_date = '2027-03-01' WHERE slug = 'lls-2027';
