@@ -7,6 +7,7 @@ workers_dev = false   # no public URL: only the website (service binding MAILER)
 # Cloudflare Email Routing: can only send to this verified destination address.
 [[send_email]]
 name = "SEND_EMAIL"
+# Must be the real verified inbox (help@lastlegsstanding.com only forwards to it), so it stays the Gmail address.
 destination_address = "jeffeersonjeff546@gmail.com"
 
 [vars]

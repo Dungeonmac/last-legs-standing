@@ -30,7 +30,7 @@ SITE_NAME = "Last Legs Standing"
 ACCOUNTS_OPEN = "false"
 # Admins are set on the account itself: after someone signs up, run  npm run make-admin -- their@email.com
 # Help desk messages are forwarded here (once RESEND_API_KEY is set) and always kept in Admin.
-SUPPORT_EMAIL = "jeffeersonjeff546@gmail.com"
+SUPPORT_EMAIL = "help@lastlegsstanding.com"
 # Secrets (set with `wrangler pages secret put NAME`, or in .dev.vars locally):
 #   STRIPE_SECRET_KEY, STRIPE_PUBLISHABLE_KEY  -> real card payments (otherwise demo mode)
 #   STRAVA_CLIENT_ID, STRAVA_CLIENT_SECRET     -> "Connect Strava" button

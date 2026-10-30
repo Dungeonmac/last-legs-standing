@@ -12,7 +12,7 @@ _Last updated: 2026-10-30_
   - Under-18s can enter (no minimum age) with a parent's or guardian's details and typed signature. The waiver now has a parent/guardian section.
   - Gender is required: Male or Female only.
   - The climb on the home page has no cap and says there's no predetermined finish day. The copy is more hype.
-  - Help desk page with a contact form, email, a temporary phone number and the "contact us too late and it's on you" disclaimer. Messages are saved, shown in Admin, and emailed to jeffeersonjeff546@gmail.com once `RESEND_API_KEY` is set.
+  - Help desk page with a contact form, email, a temporary phone number and the "contact us too late and it's on you" disclaimer. Messages are saved, shown in Admin, and emailed to the team inbox. The public address is help@lastlegsstanding.com.
   - Step-by-step "How to submit a run" guide (tracker, Strava, any app or watch), with a Help button.
   - A hype animation after sign-up, replayable from My race.
   - Mobile: bottom tab bar for logged-in runners, full-screen waiver on phones, bigger tap targets, no zoom-on-tap.
@@ -42,12 +42,11 @@ _Last updated: 2026-10-30_
 - The start date is TBD. March 1, 2027 is kept as a placeholder. Prizes are "To be announced".
 
 ## Still to do
-- [ ] Create an account on the live site (Log in > Create an account) with jeffeersonjeff546@gmail.com, then have Claude run `npm run make-admin -- jeffeersonjeff546@gmail.com`.
+- [ ] Create an account on the live site (Log in > Create an account) with help@lastlegsstanding.com, then have Claude run `npm run make-admin -- help@lastlegsstanding.com`.
 - [ ] Add the two anti-spoofing email records in Cloudflare DNS: TXT `@` = `v=spf1 -all`, and TXT `_dmarc` = `v=DMARC1; p=reject;`. Change them if the domain ever sends email.
 - [ ] Stripe account + keys (real payments; sign-up opens to the public once this is set). Strava developer app + keys (one-tap import).
 - [ ] Lawyer review of the waiver/privacy text in `public/js/legal.js` (including the under-18 consent and having no minimum age), and fill in the placeholders.
 - [ ] Replace the temporary help desk phone number (`SUPPORT` in `public/js/common.js`).
-- [ ] Resend account (free) so help desk messages are emailed. Sign up with jeffeersonjeff546@gmail.com.
 - [ ] Enable R2 in the Cloudflare dashboard (keeps original run files), then uncomment the R2 lines in wrangler.toml and redeploy.
 - [ ] Optional: Workers Paid plan ($5/month) if traffic outgrows the free database limits.
 - [ ] Optional: www → lastlegsstanding.com redirect rule in Cloudflare (both work today).
