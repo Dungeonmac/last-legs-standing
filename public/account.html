@@ -32,7 +32,7 @@
   // A paid runner whose race hasn't started yet: bib, countdown, order and a get-ready checklist.
   function registeredCard(u) {
     const startMs = Date.parse(`${u.start_date}T00:00:00Z`);
-    const paid = u.payment_status === 'paid' ? `Paid ${money(u.amount_cents)}` : u.payment_status === 'demo_paid' ? `Paid ${money(u.amount_cents)} <span class="badge demo">test</span>` : esc(u.payment_status);
+    const paid = u.payment_status === 'paid' ? `Paid ${money(u.amount_cents)}` : ['demo_paid', 'test_paid'].includes(u.payment_status) ? `Paid ${money(u.amount_cents)} <span class="badge demo">test</span>` : esc(u.payment_status);
     const ship = d.shipping ? esc([d.shipping.city, d.shipping.region, d.shipping.country].filter(Boolean).join(', ')) : '—';
     return `
       <div class="grid g2" style="align-items:stretch">

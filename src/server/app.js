@@ -6,7 +6,7 @@ import { syncEvent, liveStats, pastEventStats, publicEvent, recheckRegistration,
 import {
   stripeEnabled, createPaymentIntent, verifyPaymentIntent,
   stravaEnabled, stravaAuthorizeUrl, stravaExchange, stravaTodaysActivities, stravaActivityPoints,
-  emailEnabled, sendEmail,
+  emailEnabled, sendEmail, stripeTestMode,
 } from './integrations.js';
 import { ageGroup, divisionLabel } from '../../public/js/divisions.js';
 
@@ -226,11 +226,16 @@ route('POST', '/auth/logout', async ({ request, env }) => {
 });
 
 // ---------------------------------------------------------------- signup + payment
+// The browser asks for a payment only after /signup with check_only has accepted every detail,
+// so a runner is never charged for a sign-up that would then be refused.
 route('POST', '/payments/intent', async ({ request, env }) => {
-  if (!stripeEnabled(env)) throw new HttpError(400, 'Card payments are in demo mode.');
+  if (!stripeEnabled(env)) throw new HttpError(400, 'Card payments are not set up yet.');
   const body = await readJson(request);
   const ev = await eventBySlug(env, clean(body.event_slug));
-  const pi = await createPaymentIntent(env, ev.fee_cents, clean(body.email), ev.name);
+  if (!ev.registration_open || ev.status !== 'upcoming') throw new HttpError(400, 'Registration for this event is closed.');
+  const email = clean(body.email, 200);
+  if (!isEmail(email)) throw new HttpError(400, 'Enter a valid email address.');
+  const pi = await createPaymentIntent(env, ev.fee_cents, email.toLowerCase(), ev);
   return json({ clientSecret: pi.client_secret, id: pi.id });
 });
 
@@ -289,13 +294,19 @@ route('POST', '/signup', async ({ request, env }) => {
     if (dup) throw new HttpError(409, "You're already registered for this event.");
   }
 
+  // Everything checks out: the browser may now take the payment.
+  if (b.check_only) return json({ ok: true });
+
   // Payment: real Stripe when configured, otherwise demo mode (card number never leaves the browser).
   let paymentStatus;
   let paymentRef;
   if (stripeEnabled(env)) {
     if (!b.payment?.payment_intent) throw new HttpError(402, 'Payment is required.');
-    const pi = await verifyPaymentIntent(env, b.payment.payment_intent, ev.fee_cents);
-    paymentStatus = 'paid';
+    const pi = await verifyPaymentIntent(env, clean(b.payment.payment_intent, 100), ev.fee_cents, ev.slug);
+    if (await env.DB.prepare('SELECT id FROM registrations WHERE payment_ref = ?').bind(pi.id).first()) {
+      throw new HttpError(409, 'This payment has already been used for a registration.');
+    }
+    paymentStatus = stripeTestMode(env) ? 'test_paid' : 'paid';
     paymentRef = pi.id;
   } else {
     if (!/^\d{4}$/.test(b.payment?.last4 || '')) throw new HttpError(402, 'Card details are required.');

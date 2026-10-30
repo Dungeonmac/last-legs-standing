@@ -380,6 +380,7 @@
     dlg.showModal();
   });
 
+  let paidRef = null; // set once Stripe has taken the payment, cleared once the registration is saved
   $('agree-btn').addEventListener('click', async () => {
     const btn = $('agree-btn');
     btn.disabled = true;
@@ -402,6 +403,9 @@
     };
     try {
       if (stripe) {
+        // 1. Check every detail first, so nobody is charged for a sign-up that would be refused.
+        await api('/signup', { json: { ...body, check_only: true } });
+        // 2. Take the payment. 3. Save the registration (the server re-checks the payment with Stripe).
         const intent = await api('/payments/intent', { json: { event_slug: ev.slug, email: body.email || me.user?.email } });
         const b = body.billing_same ? body.shipping : body.billing;
         const r = await stripe.confirmCardPayment(intent.clientSecret, {
@@ -409,11 +413,13 @@
         });
         if (r.error) throw new Error(r.error.message);
         body.payment = { payment_intent: r.paymentIntent.id };
+        paidRef = r.paymentIntent.id;
       } else {
         const n = digits($('cc_number').value);
         body.payment = { last4: n.slice(-4), brand: brandOf(n) || 'card' }; // the full number is never sent
       }
       const res = await api('/signup', { json: body });
+      paidRef = null;
       dlg.close();
       form.classList.add('hidden');
       const done = $('signup-done');
@@ -429,6 +435,13 @@
       window.scrollTo({ top: 0 });
       await playHype({ first: body.first_name, last: body.last_name, bib: res.preview ? "—" : res.bib, event: res.event.name, startMs: res.event.start_ms });
     } catch (err) {
+      // Paid but not saved (very rare): give the runner what they need to get it sorted quickly.
+      if (paidRef) {
+        $('wd-error').innerHTML = `Your payment went through, but we couldn’t finish your registration: ${esc(err.message)} Please don’t pay again. <a href="/help.html?topic=Payment%20or%20refund">Contact the help desk</a> with your payment reference <b>${esc(paidRef)}</b>.`;
+        $('wd-error').classList.remove('hidden');
+        btn.textContent = 'Agree & complete signup';
+        return;
+      }
       $('wd-error').textContent = err.message;
       $('wd-error').classList.remove('hidden');
       btn.disabled = false;

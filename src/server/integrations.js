@@ -18,19 +18,25 @@ async function stripe(env, path, params, method = 'POST') {
   return data;
 }
 
-export function createPaymentIntent(env, amountCents, email, eventName) {
+export const stripeTestMode = (env) => String(env.STRIPE_SECRET_KEY || '').startsWith('sk_test_');
+
+export function createPaymentIntent(env, amountCents, email, ev) {
   return stripe(env, 'payment_intents', {
     amount: String(amountCents),
     currency: 'usd',
-    receipt_email: email,
-    description: `${eventName} entry fee`,
+    receipt_email: email, // Stripe emails the runner a receipt
+    description: `${ev.name} entry fee`,
+    'metadata[event_slug]': ev.slug,
+    'metadata[email]': email,
     'automatic_payment_methods[enabled]': 'true',
   });
 }
 
-export async function verifyPaymentIntent(env, id, amountCents) {
+/** Checks a payment really went through, for the right amount and race, before a registration is saved. */
+export async function verifyPaymentIntent(env, id, amountCents, eventSlug) {
   const pi = await stripe(env, `payment_intents/${encodeURIComponent(id)}`, null, 'GET');
-  if (pi.status !== 'succeeded' || pi.amount_received < amountCents) throw new HttpError(402, 'Payment has not completed.');
+  if (pi.status !== 'succeeded' || pi.amount_received < amountCents || pi.currency !== 'usd') throw new HttpError(402, 'Payment has not completed.');
+  if (pi.metadata?.event_slug !== eventSlug) throw new HttpError(402, 'This payment was for a different race.');
   return pi;
 }
 
