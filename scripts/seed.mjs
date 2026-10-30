@@ -143,9 +143,9 @@ const admin = await hash('AdminDemo2026!');
 const runner = await hash('RunDemo2026!');
 const PROD = process.argv.includes('--prod');
 const adminId = PROD ? null : addUser({ email: 'admin@lastlegsstanding.test', first_name: 'Race', last_name: 'Director', country: 'United States', role: 'admin', password_hash: admin.hash, password_salt: admin.salt });
-const testId = addUser({ email: 'runner@lastlegsstanding.test', first_name: 'Test', last_name: 'Runner', country: 'United States', password_hash: runner.hash, password_salt: runner.salt, dob: '1992-05-14', gender: 'Male' });
+const testId = addUser({ email: 'runner@lastlegsstanding.test', first_name: 'Test', last_name: 'Runner', country: 'United States', password_hash: PROD ? '!' : runner.hash, password_salt: PROD ? '!' : runner.salt, dob: '1992-05-14', gender: 'Male' });
 const paid = await hash('PaidDemo2026!');
-const paidId = addUser({ email: 'paid@lastlegsstanding.test', first_name: 'Jordan', last_name: 'Rivera', country: 'United States', password_hash: paid.hash, password_salt: paid.salt, dob: '1995-08-21', gender: 'Female' });
+const paidId = addUser({ email: 'paid@lastlegsstanding.test', first_name: 'Jordan', last_name: 'Rivera', country: 'United States', password_hash: PROD ? '!' : paid.hash, password_salt: PROD ? '!' : paid.salt, dob: '1995-08-21', gender: 'Female' });
 void adminId;
 const addresses = [
   { user_id: testId, kind: 'shipping', line1: '1 Demo Street', city: 'Austin', region: 'TX', postal: '78701', country: 'United States' },
@@ -211,7 +211,14 @@ function bulk(table, cols, rows) {
   }
 }
 bulk('users', ['id', 'email', 'password_hash', 'password_salt', 'first_name', 'last_name', 'dob', 'gender', 'country', 'role'], users);
-bulk('registrations', ['id', 'event_id', 'user_id', 'bib', 'status', 'first_time', 'shirt_size', 'amount_cents', 'payment_status', 'payment_ref', 'waiver_version', 'waiver_signed_name', 'waiver_signed_at', 'eliminated_day', 'status_reason', 'final_place'], regs);
+// Running totals per registration (the site keeps these up to date as runs come in).
+for (const r of regs) {
+  const mine = runs.filter((x) => x.registration_id === r.id && x.status !== 'rejected');
+  r.total_m = Math.round(mine.reduce((s, x) => s + x.distance_m, 0));
+  r.total_s = mine.reduce((s, x) => s + x.moving_s, 0);
+  r.run_count = mine.length;
+}
+bulk('registrations', ['id', 'event_id', 'user_id', 'bib', 'status', 'first_time', 'shirt_size', 'amount_cents', 'payment_status', 'payment_ref', 'waiver_version', 'waiver_signed_name', 'waiver_signed_at', 'eliminated_day', 'status_reason', 'final_place', 'total_m', 'total_s', 'run_count'], regs);
 bulk('addresses', ['user_id', 'kind', 'line1', 'city', 'region', 'postal', 'country'], addresses);
 bulk('runs', ['registration_id', 'user_id', 'event_id', 'race_day', 'source', 'start_time', 'end_time', 'distance_m', 'moving_s', 'elapsed_s', 'avg_hr', 'max_speed_kmh', 'elevation_gain_m', 'risk_score', 'flags', 'status'], runs);
 

@@ -579,3 +579,17 @@ input, select, textarea { font-size: max(16px, 1em); }
 .full-rules > .rules { padding: 1.1rem; }
 .full-rules .muted { font-weight: 500; font-size: .88rem; }
 .full-rules > summary .muted { margin: 0 auto 0 .5rem; align-self: center; }
+
+/* ---------- admin demo mode ---------- */
+.demo-mode-bar {
+  position: sticky; top: 68px; z-index: 49; display: flex; flex-wrap: wrap; gap: .5rem 1rem; align-items: center; justify-content: center;
+  padding: .55rem 1rem; font-size: .88rem; color: #1a1400; background: repeating-linear-gradient(45deg, #e2be45 0 14px, #d9b23a 14px 28px);
+}
+.demo-mode-bar b { text-transform: uppercase; letter-spacing: .08em; }
+.demo-mode-bar select { width: auto; padding: .3rem .5rem; font-size: .85rem; background: #fff8de; color: #1a1400; border-color: #0003; }
+.demo-mode-bar .btn.ghost { color: #1a1400; border-color: #1a140055; min-height: 0; }
+.nav a.demo-toggle { border: 1px dashed var(--rule); }
+.nav a.demo-toggle.on { color: var(--gold); border-color: var(--gold); }
+@media (max-width: 960px) { .demo-mode-bar { top: 68px; font-size: .8rem; } }
+.nav a { white-space: nowrap; }
+@media (min-width: 961px) and (max-width: 1300px) { .nav a { padding: .45rem .5rem; font-size: .86rem; } .nav-actions { gap: .35rem; } }

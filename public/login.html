@@ -23,7 +23,20 @@
         <div class="field"><label for="email">Email</label><input id="email" type="email" autocomplete="email" required></div>
         <div class="field"><label for="password">Password</label><input id="password" type="password" autocomplete="current-password" required></div>
         <button class="btn block" type="submit">Log in</button>
-        <p class="small muted center" style="margin:0">New here? <a href="/signup.html">Sign up for a challenge</a></p>
+        <p class="small muted center" style="margin:0">New here? <a href="#create" id="show-create">Create an account</a> or <a href="/signup.html">sign up for a challenge</a></p>
+      </form>
+
+      <form id="create" class="card stack hidden" style="margin-top:1.5rem" novalidate>
+        <h2 style="margin:0">Create an account</h2>
+        <p class="small ink2" style="margin:0">You can enter a race any time after.</p>
+        <div id="cerr" class="alert error hidden" role="alert"></div>
+        <div class="form-grid">
+          <div class="field c3"><label class="req" for="c_first">First name</label><input id="c_first" autocomplete="given-name" required maxlength="60"></div>
+          <div class="field c3"><label class="req" for="c_last">Last name</label><input id="c_last" autocomplete="family-name" required maxlength="60"></div>
+          <div class="field"><label class="req" for="c_email">Email</label><input id="c_email" type="email" autocomplete="email" required></div>
+          <div class="field"><label class="req" for="c_pw">Password</label><input id="c_pw" type="password" autocomplete="new-password" minlength="8" required><span class="hint">8+ characters, with a letter and a number.</span></div>
+        </div>
+        <button class="btn block" type="submit">Create account</button>
       </form>
     </div>
   </section>
@@ -34,6 +47,25 @@
   const next = new URLSearchParams(location.search).get('next');
   const dest = next && next.startsWith('/') && !next.startsWith('//') ? next : '/account.html';
   if (me.user) location.replace(dest);
+  const createForm = document.getElementById('create');
+  const showCreate = () => { createForm.classList.remove('hidden'); document.getElementById('c_first').focus(); };
+  document.getElementById('show-create').addEventListener('click', (e) => { e.preventDefault(); showCreate(); });
+  if (location.hash === '#create') showCreate();
+  createForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const err = document.getElementById('cerr');
+    err.classList.add('hidden');
+    try {
+      await api('/auth/register', { json: {
+        first_name: document.getElementById('c_first').value.trim(), last_name: document.getElementById('c_last').value.trim(),
+        email: document.getElementById('c_email').value.trim(), password: document.getElementById('c_pw').value,
+      } });
+      location.href = dest;
+    } catch (x) {
+      err.textContent = x.message;
+      err.classList.remove('hidden');
+    }
+  });
   document.getElementById('login').addEventListener('submit', async (e) => {
     e.preventDefault();
     const err = document.getElementById('err');

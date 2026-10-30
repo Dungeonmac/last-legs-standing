@@ -73,6 +73,9 @@ CREATE TABLE registrations (
   waiver_signed_name TEXT NOT NULL,
   waiver_signed_at TEXT NOT NULL,
   waiver_ip TEXT,
+  total_m REAL NOT NULL DEFAULT 0,               -- running totals of non-rejected runs (see refreshTotals)
+  total_s INTEGER NOT NULL DEFAULT 0,
+  run_count INTEGER NOT NULL DEFAULT 0,
   guardian_name TEXT,                            -- runners under 18 on the start date only
   guardian_relationship TEXT,
   guardian_email TEXT,
@@ -113,6 +116,8 @@ CREATE TABLE runs (
   created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 );
 CREATE INDEX runs_event_day ON runs(event_id, race_day);
+CREATE INDEX runs_reg_day ON runs(registration_id, race_day);
+CREATE INDEX registrations_event ON registrations(event_id, status);
 CREATE INDEX runs_user ON runs(user_id);
 CREATE INDEX runs_hash ON runs(file_hash);
 CREATE INDEX runs_fp ON runs(fingerprint);

@@ -48,14 +48,11 @@ export async function rankEvent(env, eventId) {
   const { results } = await env.DB.prepare(
     `SELECT r.id, r.bib, r.status, r.eliminated_day, r.final_place, r.status_reason, ${PUBLIC_NAME} AS name, u.country,
             u.gender, u.dob, e.start_date,
-            COALESCE(SUM(CASE WHEN ru.status != 'rejected' THEN ru.distance_m END), 0) AS distance_m,
-            COALESCE(SUM(CASE WHEN ru.status != 'rejected' THEN ru.moving_s END), 0) AS moving_s
+            r.total_m AS distance_m, r.total_s AS moving_s
        FROM registrations r
        JOIN users u ON u.id = r.user_id
        JOIN events e ON e.id = r.event_id
-       LEFT JOIN runs ru ON ru.registration_id = r.id
-      WHERE r.event_id = ?
-      GROUP BY r.id`,
+      WHERE r.event_id = ?`,
   ).bind(eventId).all();
   const survived = (r) => (r.status === 'active' ? Infinity : r.status === 'disqualified' ? -1 : r.eliminated_day);
   results.sort((a, b) => survived(b) - survived(a) || b.distance_m - a.distance_m || a.moving_s - b.moving_s);
@@ -90,7 +87,22 @@ async function finalize(env, ev, lastDay) {
  * Re-evaluates one runner after an admin approves/rejects a run on a day that was already processed.
  * Rejecting a run can eliminate them retroactively; approving can reinstate them.
  */
+/**
+ * Keeps a runner's running totals (distance, moving time, run count) on their registration, so rankings
+ * read one row per runner instead of adding up every run on every page view. Call after any run changes.
+ */
+export function refreshTotals(env, regId) {
+  return env.DB.prepare(
+    `UPDATE registrations SET
+       total_m = (SELECT COALESCE(SUM(distance_m), 0) FROM runs WHERE registration_id = ?1 AND status != 'rejected'),
+       total_s = (SELECT COALESCE(SUM(moving_s), 0) FROM runs WHERE registration_id = ?1 AND status != 'rejected'),
+       run_count = (SELECT COUNT(*) FROM runs WHERE registration_id = ?1 AND status != 'rejected')
+     WHERE id = ?1`,
+  ).bind(regId).run();
+}
+
 export async function recheckRegistration(env, ev, regId) {
+  await refreshTotals(env, regId);
   const reg = await env.DB.prepare('SELECT * FROM registrations WHERE id = ?').bind(regId).first();
   if (!reg || reg.status === 'disqualified' || ev.is_demo) return;
   const { results } = await env.DB.prepare(
@@ -175,7 +187,7 @@ export async function liveStats(env, ev, now = Date.now()) {
   ).bind(ev.id, day, due).first();
 
   const totals = await env.DB.prepare(
-    `SELECT COALESCE(SUM(distance_m), 0) AS all_m FROM runs WHERE event_id = ? AND status != 'rejected'`,
+    'SELECT COALESCE(SUM(total_m), 0) AS all_m FROM registrations WHERE event_id = ?',
   ).bind(ev.id).first();
 
   const { series } = await survivorsByDay(env, ev, day - 1);
@@ -211,7 +223,7 @@ export async function pastEventStats(env, ev) {
        FROM registrations WHERE event_id = ?`,
   ).bind(ev.id).first();
   const totals = await env.DB.prepare(
-    `SELECT COALESCE(SUM(distance_m), 0) AS all_m, COUNT(*) AS runs FROM runs WHERE event_id = ? AND status != 'rejected'`,
+    'SELECT COALESCE(SUM(total_m), 0) AS all_m, COALESCE(SUM(run_count), 0) AS runs FROM registrations WHERE event_id = ?',
   ).bind(ev.id).first();
   const fastestDays = await env.DB.prepare(
     `SELECT race_day, name, pace FROM (

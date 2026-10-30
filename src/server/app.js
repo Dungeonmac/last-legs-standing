@@ -2,7 +2,7 @@ import { HttpError, json, readJson, required, clean, dayNumber, dayWindow, sha25
 import { hashPassword, verifyPassword, validatePassword, createSession, clearSessionCookie, currentUser, destroySession, requireUser, requireAdmin } from './auth.js';
 import { parseActivityFile } from './parsers.js';
 import { computeMetrics, fingerprint, assessRun } from './analyze.js';
-import { syncEvent, liveStats, pastEventStats, publicEvent, recheckRegistration, standings, rankEvent } from './race.js';
+import { syncEvent, liveStats, pastEventStats, publicEvent, recheckRegistration, standings, rankEvent, refreshTotals } from './race.js';
 import {
   stripeEnabled, createPaymentIntent, verifyPaymentIntent,
   stravaEnabled, stravaAuthorizeUrl, stravaExchange, stravaTodaysActivities, stravaActivityPoints,
@@ -17,15 +17,34 @@ const routes = [];
 const route = (method, pattern, handler) =>
   routes.push({ method, re: new RegExp(`^${pattern.replace(/:(\w+)/g, '(?<$1>[^/]+)')}$`), handler });
 
+// Public race data (live race, events, results) is the same for every visitor, so Cloudflare's edge cache
+// keeps each answer for a minute. That keeps database reads low however many people are watching.
+// Admin demo-mode requests are never cached.
+const PUBLIC_CACHE = /^\/(live|events(\/[^/]+)?)$/;
+const PUBLIC_CACHE_SECONDS = 60;
+
 export async function handle(request, env) {
   const url = new URL(request.url);
   const path = url.pathname.replace(/^\/api/, '') || '/';
+  const cacheable = request.method === 'GET' && PUBLIC_CACHE.test(path) && !isDemoRequest(request) && typeof caches !== 'undefined';
+  const cacheKey = cacheable ? new Request(url.toString(), { method: 'GET' }) : null;
+  if (cacheable) {
+    const hit = await caches.default.match(cacheKey);
+    // Countdowns use server_now to correct a phone's wrong clock, so it must be fresh even on a cached answer.
+    if (hit) return json(JSON.parse((await hit.text()).replace(/"server_now":\d+/, `"server_now":${Date.now()}`)));
+  }
   for (const r of routes) {
     if (r.method !== request.method) continue;
     const m = path.match(r.re);
     if (!m) continue;
     try {
-      return await r.handler({ request, env, url, params: m.groups || {} });
+      const res = await r.handler({ request, env, url, params: m.groups || {} });
+      if (cacheable && res.status === 200) {
+        const copy = new Response(res.clone().body, res);
+        copy.headers.set('cache-control', `public, s-maxage=${PUBLIC_CACHE_SECONDS}, max-age=0`);
+        await caches.default.put(cacheKey, copy);
+      }
+      return res;
     } catch (e) {
       if (e instanceof HttpError) return json({ error: e.message, ...e.extra }, e.status);
       console.error(e);
@@ -35,27 +54,59 @@ export async function handle(request, env) {
   return json({ error: 'Not found' }, 404);
 }
 
-// ---------------------------------------------------------------- helpers
-async function allEvents(env) {
-  const { results } = await env.DB.prepare('SELECT * FROM events ORDER BY start_date').all();
-  for (const ev of results) if (ev.status !== 'completed') await syncEvent(env, ev);
-  return results;
+// ---------------------------------------------------------------- admin demo mode
+// Demo events and demo runners are hidden from the public. An admin can switch on Demo mode (the browser then
+// sends X-LLS-Demo: 1) to see the whole site with the demo data, and X-LLS-Demo-As to view it as a demo runner.
+// Both headers are ignored unless the logged-in user is an admin.
+const DEMO_RUNNERS = { paid: 'paid@lastlegsstanding.test', runner: 'runner@lastlegsstanding.test' };
+const isDemoRequest = (request) => request.headers.get('x-lls-demo') === '1';
+
+async function isAdminDemo(request, env) {
+  if (!isDemoRequest(request)) return false;
+  return !!(await currentUser(request, env))?.isAdmin;
 }
 
-async function eventBySlug(env, slug) {
+/** The logged-in user, or (admins in demo mode only) the demo runner they chose to view the site as. */
+async function viewer(request, env) {
+  const user = await currentUser(request, env);
+  if (!user) return null;
+  user.demo = false;
+  if (!user.isAdmin || !isDemoRequest(request)) return user;
+  user.demo = true;
+  const email = DEMO_RUNNERS[request.headers.get('x-lls-demo-as')];
+  if (!email) return user;
+  const as = await env.DB.prepare('SELECT id, email, first_name, last_name, role, country FROM users WHERE email = ?').bind(email).first();
+  return as ? { ...as, isAdmin: true, demo: true, viewingAs: `${as.first_name} ${as.last_name}` } : user;
+}
+
+async function requireViewer(request, env) {
+  const user = await viewer(request, env);
+  if (!user) throw new HttpError(401, 'Please log in first.');
+  return user;
+}
+
+// ---------------------------------------------------------------- helpers
+async function allEvents(env, demo = false) {
+  const { results } = await env.DB.prepare('SELECT * FROM events ORDER BY start_date').all();
+  const visible = results.filter((ev) => demo || !ev.is_demo);
+  for (const ev of visible) if (ev.status !== 'completed') await syncEvent(env, ev);
+  return visible;
+}
+
+async function eventBySlug(env, slug, demo = false) {
   const ev = await env.DB.prepare('SELECT * FROM events WHERE slug = ?').bind(slug).first();
-  if (!ev) throw new HttpError(404, 'Event not found.');
+  if (!ev || (ev.is_demo && !demo)) throw new HttpError(404, 'Event not found.');
   if (ev.status !== 'completed') await syncEvent(env, ev);
   return ev;
 }
 
-async function liveRegistration(env, userId) {
-  await allEvents(env);
+async function liveRegistration(env, userId, demo = false) {
+  await allEvents(env, demo);
   return env.DB.prepare(
     `SELECT r.id AS reg_id, r.status AS reg_status, r.bib, r.status_reason, e.*
        FROM registrations r JOIN events e ON e.id = r.event_id
-      WHERE r.user_id = ? AND e.status = 'live' ORDER BY e.start_date DESC LIMIT 1`,
-  ).bind(userId).first();
+      WHERE r.user_id = ? AND e.status = 'live' AND (e.is_demo = 0 OR ?) ORDER BY e.start_date DESC LIMIT 1`,
+  ).bind(userId, demo ? 1 : 0).first();
 }
 
 async function dayProgress(env, regId, day) {
@@ -86,7 +137,9 @@ function validAddress(a, label) {
 }
 
 // ---------------------------------------------------------------- config & auth
-route('GET', '/config', ({ env }) => json({
+route('GET', '/config', async ({ request, env }) => json({
+  // Sign-up opens to the public once real card payments (Stripe) are set up. Admins in demo mode can preview it.
+  registrationOpen: stripeEnabled(env) || (await isAdminDemo(request, env)),
   stripePublishableKey: stripeEnabled(env) ? env.STRIPE_PUBLISHABLE_KEY : null,
   strava: stravaEnabled(env),
   waiverVersion: WAIVER_VERSION,
@@ -94,13 +147,14 @@ route('GET', '/config', ({ env }) => json({
 }));
 
 route('GET', '/me', async ({ request, env }) => {
-  const user = await currentUser(request, env);
+  const user = await viewer(request, env);
   if (!user) return json({ user: null });
   const { results } = await env.DB.prepare(
     `SELECT r.id, r.bib, r.status, r.eliminated_day, r.final_place, r.shirt_size, r.amount_cents, r.payment_status, r.created_at,
             e.id AS event_id, e.slug, e.name, e.status AS event_status, e.start_date
-       FROM registrations r JOIN events e ON e.id = r.event_id WHERE r.user_id = ? ORDER BY e.start_date DESC`,
-  ).bind(user.id).all();
+       FROM registrations r JOIN events e ON e.id = r.event_id
+      WHERE r.user_id = ? AND (e.is_demo = 0 OR ?) ORDER BY e.start_date DESC`,
+  ).bind(user.id, user.demo ? 1 : 0).all();
   const p = await env.DB.prepare('SELECT dob, gender FROM users WHERE id = ?').bind(user.id).first();
   for (const r of results) {
     r.division = divisionLabel(p.gender, ageGroup(p.dob ? ageOn(p.dob, r.start_date) : null));
@@ -112,7 +166,7 @@ route('GET', '/me', async ({ request, env }) => {
     delete r.id; delete r.event_id;
   }
   return json({
-    user: { id: user.id, email: user.email, first_name: user.first_name, last_name: user.last_name, isAdmin: user.isAdmin },
+    user: { id: user.id, email: user.email, first_name: user.first_name, last_name: user.last_name, isAdmin: user.isAdmin, demo: user.demo, viewingAs: user.viewingAs || null },
     registrations: results,
   });
 });
@@ -146,6 +200,22 @@ route('POST', '/auth/login', async ({ request, env }) => {
   return json({ ok: true }, 200, { 'set-cookie': await createSession(env, u.id, request) });
 });
 
+// Create an account without entering a race (anyone can enter a race later from the sign-up page).
+route('POST', '/auth/register', async ({ request, env }) => {
+  const b = await readJson(request);
+  required(b, ['first_name', 'last_name', 'email', 'password']);
+  if (!isEmail(b.email)) throw new HttpError(400, 'Enter a valid email address.');
+  validatePassword(b.password);
+  const email = clean(b.email, 200).toLowerCase();
+  if (await env.DB.prepare('SELECT id FROM users WHERE email = ?').bind(email).first()) {
+    throw new HttpError(409, 'An account with this email already exists. Log in instead.');
+  }
+  const { hash, salt } = await hashPassword(b.password);
+  const res = await env.DB.prepare('INSERT INTO users (email, password_hash, password_salt, first_name, last_name) VALUES (?, ?, ?, ?, ?)')
+    .bind(email, hash, salt, clean(b.first_name, 60), clean(b.last_name, 60)).run();
+  return json({ ok: true }, 201, { 'set-cookie': await createSession(env, res.meta.last_row_id, request) });
+});
+
 route('POST', '/auth/logout', async ({ request, env }) => {
   await destroySession(request, env);
   return json({ ok: true }, 200, { 'set-cookie': clearSessionCookie() });
@@ -163,6 +233,8 @@ route('POST', '/payments/intent', async ({ request, env }) => {
 route('POST', '/signup', async ({ request, env }) => {
   const b = await readJson(request);
   const sessionUser = await currentUser(request, env);
+  const preview = !stripeEnabled(env) && !!sessionUser?.isAdmin && isDemoRequest(request);
+  if (!stripeEnabled(env) && !preview) throw new HttpError(403, 'Registration opens soon. Card payments are being set up.');
 
   required(b, ['event_slug', 'first_time', 'first_name', 'last_name', 'dob', 'gender', 'country', 'phone', 'emergency_name', 'emergency_phone', 'shirt_size']);
   if (!['first', 'returning'].includes(b.first_time)) throw new HttpError(400, 'Tell us whether this is your first time.');
@@ -195,6 +267,9 @@ route('POST', '/signup', async ({ request, env }) => {
   if (normName(w.signed_name) !== normName(`${b.first_name} ${b.last_name}`)) {
     throw new HttpError(400, 'Your signature must match your first and last name exactly.');
   }
+
+  // Admin demo mode: everything above was checked for real, but nothing is saved and no card is charged.
+  if (preview) return json({ ok: true, preview: true, bib: 0, event: publicEvent(ev), demoPayment: true }, 200);
 
   let userId = sessionUser?.id;
   let email = sessionUser?.email;
@@ -266,8 +341,8 @@ route('POST', '/signup', async ({ request, env }) => {
 });
 
 // ---------------------------------------------------------------- events & live
-route('GET', '/events', async ({ env }) => {
-  const events = await allEvents(env);
+route('GET', '/events', async ({ request, env }) => {
+  const events = await allEvents(env, await isAdminDemo(request, env));
   const { results: counts } = await env.DB.prepare('SELECT event_id, COUNT(*) AS n FROM registrations GROUP BY event_id').all();
   const n = Object.fromEntries(counts.map((c) => [c.event_id, c.n]));
   const out = { upcoming: [], live: [], past: [] };
@@ -285,16 +360,16 @@ route('GET', '/events', async ({ env }) => {
   return json(out);
 });
 
-route('GET', '/events/:slug', async ({ env, params }) => {
-  const ev = await eventBySlug(env, params.slug);
+route('GET', '/events/:slug', async ({ request, env, params }) => {
+  const ev = await eventBySlug(env, params.slug, await isAdminDemo(request, env));
   if (ev.status === 'completed') return json({ kind: 'past', ...(await pastEventStats(env, ev)) });
   if (ev.status === 'live') return json({ kind: 'live', ...(await liveStats(env, ev)) });
   const { n } = await env.DB.prepare('SELECT COUNT(*) AS n FROM registrations WHERE event_id = ?').bind(ev.id).first();
   return json({ kind: 'upcoming', event: publicEvent(ev), registered: n });
 });
 
-route('GET', '/live', async ({ env, url }) => {
-  const events = await allEvents(env);
+route('GET', '/live', async ({ request, env, url }) => {
+  const events = await allEvents(env, await isAdminDemo(request, env));
   const wanted = url.searchParams.get('event');
   const live = events.filter((e) => e.status === 'live');
   const ev = live.find((e) => e.slug === wanted) || live.find((e) => !e.is_demo) || live[0];
@@ -307,8 +382,8 @@ route('GET', '/live', async ({ env, url }) => {
 
 // ---------------------------------------------------------------- runner dashboard
 route('GET', '/dashboard', async ({ request, env }) => {
-  const user = await requireUser(request, env);
-  const reg = await liveRegistration(env, user.id);
+  const user = await requireViewer(request, env);
+  const reg = await liveRegistration(env, user.id, user.demo);
   let race = null;
   if (reg) {
     const day = Math.max(1, dayNumber(reg.start_date));
@@ -335,7 +410,7 @@ route('GET', '/dashboard', async ({ request, env }) => {
 
 // ---------------------------------------------------------------- run ingestion
 async function ingestRun(env, user, parsed, source, file) {
-  const reg = await liveRegistration(env, user.id);
+  const reg = await liveRegistration(env, user.id, user.demo);
   if (!reg) throw new HttpError(400, "You're not registered in a race that is currently live.");
   if (reg.reg_status !== 'active') {
     throw new HttpError(403, `You're out of this race (${reg.reg_status}${reg.status_reason ? `: ${reg.status_reason}` : ''}).`);
@@ -376,6 +451,7 @@ async function ingestRun(env, user, parsed, source, file) {
   ).bind(reg.reg_id, user.id, reg.id, day, source, m.start_time, m.end_time, m.distance_m, m.moving_s, m.elapsed_s, m.avg_hr,
     m.max_speed_kmh, m.elevation_gain_m, JSON.stringify(m.track), fileKey, fileHash, fp, verdict.score,
     JSON.stringify(verdict.flags), verdict.status).run();
+  await refreshTotals(env, reg.reg_id);
 
   const done = await dayProgress(env, reg.reg_id, day);
   return json({
@@ -389,7 +465,7 @@ async function ingestRun(env, user, parsed, source, file) {
 }
 
 route('POST', '/runs/upload', async ({ request, env }) => {
-  const user = await requireUser(request, env);
+  const user = await requireViewer(request, env);
   const form = await request.formData();
   const f = form.get('file');
   if (!f || typeof f === 'string') throw new HttpError(400, 'Attach a .gpx, .tcx or .fit file.');
@@ -400,7 +476,7 @@ route('POST', '/runs/upload', async ({ request, env }) => {
 });
 
 route('POST', '/runs/track', async ({ request, env }) => {
-  const user = await requireUser(request, env);
+  const user = await requireViewer(request, env);
   const body = await readJson(request);
   if (!Array.isArray(body.points) || body.points.length > 200_000) throw new HttpError(400, 'Invalid track.');
   const points = body.points
@@ -411,7 +487,7 @@ route('POST', '/runs/track', async ({ request, env }) => {
 });
 
 route('GET', '/runs/:id', async ({ request, env, params }) => {
-  const user = await requireUser(request, env);
+  const user = await requireViewer(request, env);
   const run = await env.DB.prepare('SELECT * FROM runs WHERE id = ?').bind(params.id).first();
   if (!run || (run.user_id !== user.id && !user.isAdmin)) throw new HttpError(404, 'Run not found.');
   return json({ ...run, track: JSON.parse(run.track || '[]'), flags: JSON.parse(run.flags || '[]'), file_hash: undefined, fingerprint: undefined });
@@ -515,7 +591,7 @@ route('POST', '/admin/support/:id', async ({ request, env, params }) => {
 // ---------------------------------------------------------------- admin
 route('GET', '/admin/overview', async ({ request, env }) => {
   await requireAdmin(request, env);
-  const events = await allEvents(env);
+  const events = await allEvents(env, true);
   const { results: stats } = await env.DB.prepare(
     `SELECT event_id, COUNT(*) AS total, SUM(first_time = 1) AS first_timers, SUM(first_time = 0) AS returners,
             SUM(status = 'active') AS active, SUM(status = 'disqualified') AS dq,
@@ -551,7 +627,7 @@ route('POST', '/admin/runs/:id/review', async ({ request, env, params }) => {
 
 route('GET', '/admin/events/:slug/registrations', async ({ request, env, params }) => {
   await requireAdmin(request, env);
-  const ev = await eventBySlug(env, params.slug);
+  const ev = await eventBySlug(env, params.slug, true);
   const rows = await standings(env, ev.id, 5000);
   const { results: extra } = await env.DB.prepare(
     `SELECT r.id, u.first_name || ' ' || u.last_name AS full_name, u.email, r.first_time, r.shirt_size, r.payment_status, r.created_at
@@ -564,7 +640,7 @@ route('GET', '/admin/events/:slug/registrations', async ({ request, env, params 
 // Award winners with what's needed to ship their shirt and medal. Only award winners get them.
 route('GET', '/admin/events/:slug/awards', async ({ request, env, params }) => {
   await requireAdmin(request, env);
-  const ev = await eventBySlug(env, params.slug);
+  const ev = await eventBySlug(env, params.slug, true);
   const { awards } = await rankEvent(env, ev.id);
   const ids = [...new Set(awards.flatMap((c) => c.winners.map((w) => w.id)))];
   const ship = {};

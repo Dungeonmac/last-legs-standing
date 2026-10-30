@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Demo · Last Legs Standing</title>
+  <title>Demo mode · Last Legs Standing</title>
   <meta name="robots" content="noindex">
   <meta name="theme-color" content="#0c0d0f">
   <link rel="icon" href="/img/favicon.svg" type="image/svg+xml">
@@ -13,57 +13,53 @@
 </head>
 <body data-page="demo">
 <main id="main">
-  <!-- Local preview only. The demo accounts exist only in the seeded local database (npm run db:reset). -->
+  <!-- Admin-only: switches the whole site to the sample races and runners. Visitors never see demo data. -->
   <section class="page-head"><div class="wrap">
-    <div class="eyebrow">Preview</div>
-    <h1 class="display" style="font-size:clamp(2.4rem,6vw,4rem)">See it as a runner</h1>
-    <p class="lead">Log in as a demo runner with one tap and look around. Nothing here is real, and no card is charged.</p>
+    <div class="eyebrow">Admins only</div>
+    <h1 class="display" style="font-size:clamp(2.4rem,6vw,4rem)">Demo mode</h1>
+    <p class="lead">See the whole site with sample races and runners, exactly as runners will see it once real races are running. The public never sees demo data, and nothing you do in demo mode charges a card.</p>
   </div></section>
-  <section class="section" style="padding-top:2.5rem"><div class="wrap stack">
-    <div id="err" class="alert error hidden" role="alert"></div>
-    <div class="path-pick">
-      <button class="path-card" style="text-align:left;font:inherit;cursor:pointer" data-email="paid@lastlegsstanding.test" data-pw="PaidDemo2026!" data-next="/account.html">
-        <span class="big" aria-hidden="true">🎟</span><span class="tag">Just paid</span><b>Signed up &amp; paid</b>
-        <span class="small ink2">Jordan has paid for the 2027 race, which hasn’t started yet. See the bib, the countdown, the order details and the get-ready checklist.</span></button>
-      <button class="path-card" style="text-align:left;font:inherit;cursor:pointer" data-email="runner@lastlegsstanding.test" data-pw="RunDemo2026!" data-next="/account.html">
-        <span class="big" aria-hidden="true">🔥</span><span class="tag">Mid-race</span><b>In the race, Day 18</b>
-        <span class="small ink2">Test Runner is still standing on Day 18 of a demo race. See today’s distance, the deadline countdown, uploads and the tracker.</span></button>
-      <button class="path-card" style="text-align:left;font:inherit;cursor:pointer" id="hype">
-        <span class="big" aria-hidden="true">⚡</span><b>The welcome animation</b>
-        <span class="small ink2">Play the hype sequence that every runner sees right after they sign up.</span></button>
-    </div>
-    <div class="card">
-      <h3>Other things to try</h3>
-      <ul class="ink2 small" style="padding-left:1.1rem;margin:0;display:grid;gap:.4rem">
-        <li><b>Sign up yourself:</b> go to <a href="/signup.html">Sign up</a> and use the test card <span class="num">4242 4242 4242 4242</span> with any future expiry date. Enter a birth date under 18 to see the parent or guardian consent steps.</li>
-        <li><b>Upload a run:</b> as the mid-race runner, run <code>npm run sample-gpx</code>, then upload <code>samples/today-valid-run.gpx</code> on the Upload page.</li>
-        <li><b>On your phone:</b> open this page on your phone (same Wi-Fi) to see the mobile layout and the bottom tab bar.</li>
-        <li id="admin-tip"><b>Admin:</b> log in as <code>admin@lastlegsstanding.test</code> / <code>AdminDemo2026!</code> to see the help desk inbox and the review queue.</li>
-      </ul>
-    </div>
-  </div></section>
+  <section class="section" style="padding-top:2.5rem"><div class="wrap stack" id="content"><span class="spinner"></span></div></section>
 </main>
 <script type="module">
-  import { mountChrome, api } from '/js/common.js';
+  import { mountChrome, demoOn, setDemo, DEMO_AS } from '/js/common.js';
   import { playHype } from '/js/hype.js';
-  await mountChrome();
-  const err = document.getElementById('err');
-  // The demo accounts only exist in the local database (npm run db:reset), never on the live site.
-  const local = ['localhost', '127.0.0.1'].includes(location.hostname) || /^(192\.168|10)\./.test(location.hostname);
-  if (!local) document.getElementById('admin-tip')?.remove(); // the demo admin account only exists locally
-  document.querySelectorAll('[data-email]').forEach((b) => b.addEventListener('click', async () => {
-    err.classList.add('hidden');
-    try {
-      await api('/auth/logout', { method: 'POST' }).catch(() => {});
-      await api('/auth/login', { json: { email: b.dataset.email, password: b.dataset.pw } });
-      location.href = b.dataset.next;
-    } catch (x) {
-      err.textContent = `${x.message} The demo accounts exist only after you run "npm run db:reset" locally.`;
-      err.classList.remove('hidden');
-    }
-  }));
-  document.getElementById('hype').addEventListener('click', () =>
-    playHype({ first: 'Jordan', last: 'Rivera', bib: 1, event: 'Last Legs Standing 2027', startMs: Date.parse('2027-03-01T00:00:00Z') }));
+  const me = await mountChrome();
+  const $ = (id) => document.getElementById(id);
+  if (!me.user?.isAdmin) {
+    $('content').innerHTML = '<div class="empty">Demo mode is for race admins. <a href="/login.html?next=/demo.html">Log in</a> with an admin account.</div>';
+  } else {
+    const on = demoOn();
+    const as = localStorage.getItem('lls-demo-as') || '';
+    const go = (k, href) => `<button class="path-card" style="text-align:left;font:inherit;cursor:pointer" data-as="${k}" data-href="${href}">`;
+    $('content').innerHTML = `
+      <div class="card raise row between">
+        <div><h3 style="margin:0">Demo mode is <span class="${on ? 'gold' : 'muted'}">${on ? 'ON' : 'OFF'}</span></h3>
+          <p class="small ink2" style="margin:.3rem 0 0">${on ? `Showing sample data${DEMO_AS[as] ? `, viewing as <b>${DEMO_AS[as]}</b>` : ''}. A yellow bar at the top of every page reminds you.` : 'You’re seeing exactly what the public sees.'}</p></div>
+        <button class="btn ${on ? 'ghost' : ''}" id="toggle">${on ? 'Turn demo mode off' : 'Turn demo mode on'}</button>
+      </div>
+      <h3 style="margin-top:2rem">Jump in</h3>
+      <div class="path-pick">
+        ${go('', '/live.html')}<span class="big" aria-hidden="true">🔴</span><span class="tag">Public pages</span><b>Live race &amp; results</b>
+          <span class="small ink2">The demo race on Day 18, the finished 2025 sample event with awards, and the home page live banner.</span></button>
+        ${go('paid', '/account.html')}<span class="big" aria-hidden="true">🎟</span><span class="tag">View as runner</span><b>Signed up &amp; paid</b>
+          <span class="small ink2">Jordan’s dashboard before the race starts: bib, countdown, order details and checklist.</span></button>
+        ${go('runner', '/account.html')}<span class="big" aria-hidden="true">🔥</span><span class="tag">View as runner</span><b>In the race, Day 18</b>
+          <span class="small ink2">Today’s distance, deadline countdown, past runs, uploads and the tracker.</span></button>
+        ${go('', '/signup.html')}<span class="big" aria-hidden="true">📝</span><span class="tag">Preview</span><b>Sign-up with the test card</b>
+          <span class="small ink2">The full sign-up, waiver and welcome animation with card 4242 4242 4242 4242. Nothing is saved.</span></button>
+        <button class="path-card" style="text-align:left;font:inherit;cursor:pointer" id="hype"><span class="big" aria-hidden="true">⚡</span><b>The welcome animation</b>
+          <span class="small ink2">The hype sequence every runner sees right after they sign up.</span></button>
+      </div>
+      <p class="small muted">Uploads you make while viewing as the Day 18 runner go into the demo race only.</p>`;
+    $('toggle').addEventListener('click', () => { setDemo(!on); location.reload(); });
+    document.querySelectorAll('[data-href]').forEach((b) => b.addEventListener('click', () => {
+      setDemo(true, b.dataset.as || null);
+      location.href = b.dataset.href;
+    }));
+    $('hype').addEventListener('click', () =>
+      playHype({ first: 'Jordan', last: 'Rivera', bib: 1, event: 'Last Legs Standing 2027', startMs: Date.parse('2027-03-01T00:00:00Z') }));
+  }
 </script>
 </body>
 </html>

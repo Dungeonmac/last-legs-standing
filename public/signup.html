@@ -202,6 +202,21 @@
   const [config, events] = await Promise.all([api('/config'), api('/events')]);
   const open = events.upcoming.filter((e) => e.registration_open);
 
+  // Sign-up opens once real card payments are connected. Until then visitors see this instead of the form.
+  if (!config.registrationOpen) {
+    form.classList.add('hidden');
+    const next = events.upcoming[0];
+    $('signup-done').classList.remove('hidden');
+    $('signup-done').innerHTML = `
+      <div class="card center" style="max-width:640px;margin:0 auto;padding:3rem 2rem">
+        <div class="eyebrow">Almost time</div>
+        <h2 class="display" style="font-size:clamp(2.4rem,7vw,3.4rem)">Registration opens soon.</h2>
+        <p class="lead" style="margin:0 auto 1rem">${next ? `${esc(next.name)} starts ${fmtDate(next.start_ms, 'UTC')}. ` : ''}We’re putting the finishing touches on secure card payments. Start training now: Day 1 is just 1 km, but the climb never stops.</p>
+        <div class="row" style="justify-content:center;margin-top:1.5rem"><a class="btn" href="/#rules">Read the rules</a><a class="btn ghost" href="/how-to-submit.html">How runs are submitted</a><a class="btn ghost" href="/help.html">Questions?</a></div>
+      </div>`;
+    throw new Error('registration not open yet'); // stop here; nothing else on this page applies
+  }
+
   // ---- challenges
   const choices = $('event-choices');
   if (!open.length) {
@@ -405,14 +420,14 @@
       done.classList.remove('hidden');
       done.innerHTML = `
         <div class="card center" style="max-width:640px;margin:0 auto;padding:3rem 2rem">
-          <div class="eyebrow">You’re in</div>
-          <h2 class="display" style="font-size:3.4rem">Bib #${res.bib}</h2>
+          <div class="eyebrow">${res.preview ? 'Demo mode preview' : 'You’re in'}</div>
+          <h2 class="display" style="font-size:3.4rem">${res.preview ? 'Bib #—' : `Bib #${res.bib}`}</h2>
           <p class="lead" style="margin:0 auto 1rem">Welcome to <b>${esc(res.event.name)}</b>. Day 1 is <b>1 km</b> and starts <b>${fmtLocal(res.event.start_ms)}</b>.</p>
-          ${res.demoPayment ? '<p class="badge demo">Test payment: no card was charged</p>' : '<p class="muted">Your payment is confirmed.</p>'}
+          ${res.preview ? '<p class="badge demo">Preview only: nothing was saved and no card was charged</p>' : res.demoPayment ? '<p class="badge demo">Test payment: no card was charged</p>' : '<p class="muted">Your payment is confirmed.</p>'}
           <div class="row" style="justify-content:center;margin-top:1.5rem"><a class="btn" href="/account.html">Go to my race</a><a class="btn ghost" href="/how-to-submit.html">How to submit runs</a></div>
         </div>`;
       window.scrollTo({ top: 0 });
-      await playHype({ first: body.first_name, last: body.last_name, bib: res.bib, event: res.event.name, startMs: res.event.start_ms });
+      await playHype({ first: body.first_name, last: body.last_name, bib: res.preview ? "—" : res.bib, event: res.event.name, startMs: res.event.start_ms });
     } catch (err) {
       $('wd-error').textContent = err.message;
       $('wd-error').classList.remove('hidden');

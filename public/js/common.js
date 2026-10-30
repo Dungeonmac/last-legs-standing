@@ -5,9 +5,24 @@ export const KM_PER_MI = 1.609344;
 // Help desk contact. The phone number is a placeholder until a real line is set up.
 export const SUPPORT = { email: 'jeffeersonjeff546@gmail.com', phone: '+1 (555) 010-2027', phoneHref: 'tel:+15550102027' };
 
+// ---------------------------------------------------------------- admin demo mode
+// Admins can switch on Demo mode to see the site with the sample races and runners (hidden from the public),
+// optionally viewing it as one of the demo runners. The server ignores these headers for non-admins.
+export const DEMO_AS = { paid: 'Jordan (paid, race not started)', runner: 'Test Runner (in the race, Day 18)' };
+export const demoOn = () => localStorage.getItem('lls-demo') === '1';
+export function demoHeaders() {
+  if (!demoOn()) return {};
+  const as = localStorage.getItem('lls-demo-as');
+  return { 'x-lls-demo': '1', ...(DEMO_AS[as] ? { 'x-lls-demo-as': as } : {}) };
+}
+export function setDemo(on, as = null) {
+  if (on) localStorage.setItem('lls-demo', '1'); else localStorage.removeItem('lls-demo');
+  if (as) localStorage.setItem('lls-demo-as', as); else localStorage.removeItem('lls-demo-as');
+}
+
 // ---------------------------------------------------------------- API
 export async function api(path, opts = {}) {
-  const init = { credentials: 'same-origin', ...opts, headers: { ...(opts.headers || {}) } };
+  const init = { credentials: 'same-origin', ...opts, headers: { ...demoHeaders(), ...(opts.headers || {}) } };
   if (opts.json !== undefined) {
     init.method = init.method || 'POST';
     init.headers['content-type'] = 'application/json';
@@ -138,7 +153,8 @@ function header(page, me) {
   const account = me.user
     ? `<a href="/upload.html" ${page === 'upload' ? 'aria-current="page"' : ''}>Upload run</a>
        <a href="/track.html" ${page === 'track' ? 'aria-current="page"' : ''}>Tracker</a>
-       ${me.user.isAdmin ? `<a href="/admin.html" ${page === 'admin' ? 'aria-current="page"' : ''}>Admin</a>` : ''}
+       ${me.user.isAdmin ? `<a href="/admin.html" ${page === 'admin' ? 'aria-current="page"' : ''}>Admin</a>
+         <a href="/demo.html" class="demo-toggle ${demoOn() ? 'on' : ''}" ${page === 'demo' ? 'aria-current="page"' : ''}>Demo ${demoOn() ? 'on' : 'off'}</a>` : ''}
        <a href="/account.html" class="btn ghost sm">My race</a>`
     : `<a href="/login.html">Log in</a>`;
   return `
@@ -199,7 +215,21 @@ function footer() {
 export async function mountChrome() {
   const page = document.body.dataset.page;
   const me = await getMe();
+  if (!me.user?.isAdmin && demoOn()) setDemo(false); // demo mode is admin-only
   document.body.insertAdjacentHTML('afterbegin', header(page, me));
+  if (me.user?.isAdmin && demoOn()) {
+    const as = localStorage.getItem('lls-demo-as') || '';
+    document.querySelector('.site-header').insertAdjacentHTML('afterend', `
+      <div class="demo-mode-bar" role="status">
+        <b>Demo mode</b><span>You're seeing sample races and runners. Only admins see this.</span>
+        <label>View as <select id="demo-as">
+          <option value="">Myself</option>${Object.entries(DEMO_AS).map(([k, v]) => `<option value="${k}" ${k === as ? 'selected' : ''}>${v}</option>`).join('')}
+        </select></label>
+        <button type="button" class="btn ghost sm" id="demo-off">Turn off</button>
+      </div>`);
+    document.getElementById('demo-as').addEventListener('change', (e) => { setDemo(true, e.target.value || null); location.reload(); });
+    document.getElementById('demo-off').addEventListener('click', () => { setDemo(false); location.reload(); });
+  }
   document.body.insertAdjacentHTML('beforeend', footer());
   if (me.user) {
     document.body.classList.add('has-tabbar');

@@ -70,7 +70,7 @@
   </div></section>
 </main>
 <script type="module">
-  import { mountChrome, requireLogin, api, fmtLocal, fmtUTC, esc, dist, both, pace, duration, countdown } from '/js/common.js';
+  import { mountChrome, requireLogin, api, demoHeaders, fmtLocal, fmtUTC, esc, dist, both, pace, duration, countdown } from '/js/common.js';
   import { drawTrack } from '/js/map.js';
   await mountChrome();
   await requireLogin();
@@ -150,7 +150,7 @@
       $('results').prepend(placeholder);
       const fd = new FormData();
       fd.append('file', f);
-      const r = await fetch('/api/runs/upload', { method: 'POST', body: fd, credentials: 'same-origin' });
+      const r = await fetch('/api/runs/upload', { method: 'POST', body: fd, credentials: 'same-origin', headers: demoHeaders() });
       const data = await r.json().catch(() => ({ error: 'Upload failed.' }));
       placeholder.replaceWith(resultCard(f.name, data));
       await afterUpload(data);
