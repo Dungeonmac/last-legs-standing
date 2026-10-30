@@ -26,12 +26,13 @@
         <div class="stack">
           <label class="dropzone" id="drop" for="file">
             <div style="font-size:2.2rem" aria-hidden="true">⬆</div>
-            <b>Drop your run files here</b>
-            <p class="muted small" style="margin:.3rem 0 1rem">.gpx, .tcx or .fit from any watch or app · multiple files OK (split runs)</p>
-            <span class="btn sm">Choose files</span>
-            <input type="file" id="file" accept=".gpx,.tcx,.fit" multiple class="hidden">
+            <b>Tap to choose your run file</b>
+            <p class="muted small" style="margin:.3rem 0 1rem">.gpx, .tcx or .fit from any watch or app. On a computer you can also drag files here. Several files are fine (split runs).</p>
+            <span class="btn">Choose file</span>
+            <input type="file" id="file" multiple class="hidden">
           </label>
           <div id="results" class="stack"></div>
+          <div class="tip" style="margin-top:1rem"><b>Using your phone only?</b> The <a href="/track.html">built-in tracker</a> is the easiest way: press Start, run, press Finish. <a href="/how-to-submit.html">See all three ways, step by step.</a></div>
         </div>
 
         <div class="stack">
@@ -61,6 +62,10 @@
           </div>
         </div>
       </div>
+    </div>
+    <div class="help-cta" style="margin-top:2rem">
+      <div><h3 style="margin:0">Not sure what to do?</h3><p class="ink2 small" style="margin:.3rem 0 0">Follow the <a href="/how-to-submit.html">step-by-step guide</a>, or contact us. Reach out early: help requests don’t extend the deadline.</p></div>
+      <div class="row"><a class="btn ghost" href="/how-to-submit.html">How to submit</a><a class="btn" href="/help.html?topic=Uploading%20a%20run">Help</a></div>
     </div>
   </div></section>
 </main>
@@ -130,8 +135,15 @@
     }
   }
 
+  const OK_EXT = /.(gpx|tcx|fit)$/i;
   async function uploadFiles(files) {
     for (const f of files) {
+      if (!OK_EXT.test(f.name)) {
+        $('results').prepend(resultCard(f.name, { error: /.zip$/i.test(f.name)
+          ? 'This is a .zip file. Open it first, then upload the .fit file that’s inside.'
+          : 'This isn’t a run file. Choose a .gpx, .tcx or .fit file exported from your watch or app.' }));
+        continue;
+      }
       const placeholder = document.createElement('div');
       placeholder.className = 'card';
       placeholder.innerHTML = `<span class="spinner"></span> Checking <b>${esc(f.name)}</b>…`;

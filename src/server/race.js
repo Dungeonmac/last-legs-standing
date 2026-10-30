@@ -1,4 +1,5 @@
 import { dayNumber, dayWindow } from './util.js';
+import { ageOn, ageGroup, computeAwards } from '../../public/js/divisions.js';
 
 const PUBLIC_NAME = `u.first_name || ' ' || substr(u.last_name, 1, 1) || '.'`;
 
@@ -38,21 +39,39 @@ export async function syncEvent(env, ev, now = Date.now()) {
   return ev;
 }
 
-/** Ranking rule: last day survived, then most total distance, then fastest total time. */
-export async function standings(env, eventId, limit = 1000) {
+/**
+ * Ranking rule: last day survived, then most total distance, then fastest total time.
+ * Also ranks every division (men, women, age groups by age on Day 1) and works out the awards.
+ * Birth dates never leave this function; only the age group does.
+ */
+export async function rankEvent(env, eventId) {
   const { results } = await env.DB.prepare(
     `SELECT r.id, r.bib, r.status, r.eliminated_day, r.final_place, r.status_reason, ${PUBLIC_NAME} AS name, u.country,
+            u.gender, u.dob, e.start_date,
             COALESCE(SUM(CASE WHEN ru.status != 'rejected' THEN ru.distance_m END), 0) AS distance_m,
             COALESCE(SUM(CASE WHEN ru.status != 'rejected' THEN ru.moving_s END), 0) AS moving_s
        FROM registrations r
        JOIN users u ON u.id = r.user_id
+       JOIN events e ON e.id = r.event_id
        LEFT JOIN runs ru ON ru.registration_id = r.id
       WHERE r.event_id = ?
       GROUP BY r.id`,
   ).bind(eventId).all();
   const survived = (r) => (r.status === 'active' ? Infinity : r.status === 'disqualified' ? -1 : r.eliminated_day);
   results.sort((a, b) => survived(b) - survived(a) || b.distance_m - a.distance_m || a.moving_s - b.moving_s);
-  return results.slice(0, limit);
+  for (const r of results) {
+    r.sex = ['Male', 'Female'].includes(r.gender) ? r.gender : null;
+    r.age_group = ageGroup(ageOn(r.dob, r.start_date));
+    delete r.gender; delete r.dob; delete r.start_date;
+  }
+  const awards = computeAwards(results).map((c) => ({
+    ...c, winners: c.winners.map((w) => ({ id: w.id, award_place: w.award_place, name: w.name, country: w.country, bib: w.bib, division: w.division, status: w.status, eliminated_day: w.eliminated_day, distance_m: w.distance_m })),
+  }));
+  return { rows: results, awards };
+}
+
+export async function standings(env, eventId, limit = 1000) {
+  return (await rankEvent(env, eventId)).rows.slice(0, limit);
 }
 
 async function finalize(env, ev, lastDay) {
@@ -160,7 +179,8 @@ export async function liveStats(env, ev, now = Date.now()) {
   ).bind(ev.id).first();
 
   const { series } = await survivorsByDay(env, ev, day - 1);
-  const leaders = await standings(env, ev.id, 25);
+  const { rows: ranked, awards } = await rankEvent(env, ev.id);
+  const leaders = ranked.slice(0, 25);
 
   return {
     event: publicEvent(ev),
@@ -178,13 +198,14 @@ export async function liveStats(env, ev, now = Date.now()) {
     fastest_today: fastest || null,
     survivors: series,
     leaderboard: leaders,
+    category_leaders: awards, // who would win each award if the race ended now
   };
 }
 
 export async function pastEventStats(env, ev) {
   const lastDay = ev.ended_day || ev.last_processed_day;
   const { total, series } = await survivorsByDay(env, ev, lastDay);
-  const rows = await standings(env, ev.id, 2000);
+  const { rows, awards } = await rankEvent(env, ev.id);
   const meta = await env.DB.prepare(
     `SELECT SUM(first_time = 1) AS rookies, SUM(first_time = 0) AS returners, SUM(status = 'disqualified') AS dq
        FROM registrations WHERE event_id = ?`,
@@ -214,6 +235,7 @@ export async function pastEventStats(env, ev) {
     podium: rows.filter((r) => r.final_place && r.final_place <= 3).sort((a, b) => a.final_place - b.final_place),
     survivors: series,
     standings: rows,
+    awards,
     fastest_by_day: fastestDays.results,
   };
 }

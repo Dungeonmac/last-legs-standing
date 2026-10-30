@@ -26,7 +26,9 @@
 <script type="module">
   import { mountChrome, api, fmtDate, fmtLocal, fmtUTC, money, esc, dist, both, pace, duration, countdown } from '/js/common.js';
   import { survivorsChart } from '/js/chart.js';
-  import { RULES } from '/js/legal.js';
+  import { GOLDEN_RULES } from '/js/legal.js';
+  import { awardsHTML } from '/js/awards-view.js';
+  import { AGE_GROUP_LIST } from '/js/divisions.js';
   mountChrome();
 
   const slug = new URLSearchParams(location.search).get('e');
@@ -54,19 +56,21 @@
           </div>
           <div class="grid g2">
             <div class="tile"><div class="label">Start day</div><div class="value" style="font-size:1.7rem">${fmtDate(ev.start_ms, 'UTC')}</div><div class="sub">Day 1 = 1 km (0.62 mi)</div></div>
-            <div class="tile"><div class="label">Sign-up fee</div><div class="value">${money(ev.fee_cents)}</div><div class="sub">Shirt + medal shipping included</div></div>
+            <div class="tile"><div class="label">Sign-up fee</div><div class="value">${money(ev.fee_cents)}</div><div class="sub">Award winners get a shirt + medal</div></div>
             <div class="tile"><div class="label">Registered</div><div class="value">${data.registered}</div><div class="sub">runners so far</div></div>
             <div class="tile"><div class="label">Daily deadline</div><div class="value" style="font-size:1.7rem">23:59:59 UTC</div><div class="sub">${fmtLocal(Date.UTC(2000, 0, 1, 23, 59, 59), false)} your time</div></div>
           </div>
           <div class="card">
-            <h3>Prizes</h3>
+            <h3>Awards</h3>
+            <p class="small ink2">Top 3 overall, top 3 men, top 3 women, and the top 3 men and women in each age group (${AGE_GROUP_LIST}, by age on Day 1). One award per runner. Every award winner gets a finisher shirt and medal.</p>
+            <h3 style="margin-top:1rem">Prizes</h3>
             <div class="table-wrap"><table><tbody>${ev.prizes.map((p) => `<tr><td><span class="place p${p.place}">${p.place}</span></td><td><b>${ord(p.place)} place</b></td><td class="ink2">${esc(p.prize)}</td></tr>`).join('')}</tbody></table></div>
           </div>
           ${ev.registration_open ? `<a class="btn lg block" href="/signup.html?event=${ev.slug}">Sign up · ${money(ev.fee_cents)}</a>` : '<div class="alert warn">Registration is closed.</div>'}
         </div>
         <div class="card">
-          <h3>Rules at a glance</h3>
-          <ol style="padding-left:1.2rem" class="small ink2">${RULES.map(([t]) => `<li style="margin-bottom:.45rem"><b style="color:var(--ink)">${t}</b></li>`).join('')}</ol>
+          <h3>The five golden rules</h3>
+          <ol style="padding-left:1.2rem" class="small ink2">${GOLDEN_RULES.map(([t]) => `<li style="margin-bottom:.45rem"><b style="color:var(--ink)">${t}</b></li>`).join('')}</ol>
           <a href="/#rules">Read the full rules →</a>
         </div>
       </div>`;
@@ -98,15 +102,22 @@
       </div>
 
       <div class="card" style="margin-top:1.25rem">
+        <h3>Award winners</h3>
+        <p class="small ink2" style="margin-top:0">One award per runner. Overall winners are skipped in the men’s, women’s and age-group lists, and the next runner moves up. Every award winner receives a shirt and medal.</p>
+        ${awardsHTML(d.awards, { days: d.days })}
+      </div>
+
+      <div class="card" style="margin-top:1.25rem">
         <h3>Runners left after each day</h3>
         <div id="chart"></div>
       </div>
 
       <div class="grid g2" style="margin-top:1.25rem;align-items:start">
         <div class="card">
-          <div class="row between"><h3 style="margin:0">Final standings</h3><input id="search" placeholder="Search runner or country" style="max-width:220px;padding:.5rem .7rem"></div>
+          <div class="row between"><h3 style="margin:0">Final standings</h3>
+            <div class="row" style="gap:.5rem"><select id="div" style="width:auto;padding:.5rem .7rem" aria-label="Division"></select><input id="search" placeholder="Search runner or country" style="max-width:200px;padding:.5rem .7rem"></div></div>
           <div class="table-wrap" style="margin-top:1rem;max-height:520px"><table>
-            <thead><tr><th>#</th><th>Runner</th><th>Bib</th><th class="r">Lasted</th><th class="r">Total</th></tr></thead>
+            <thead><tr><th>#</th><th>Runner</th><th>Division</th><th>Bib</th><th class="r">Lasted</th><th class="r">Total</th></tr></thead>
             <tbody id="standings"></tbody></table></div>
         </div>
         <div class="card">
@@ -117,15 +128,24 @@
         </div>
       </div>`;
     survivorsChart($('chart'), d.survivors);
-    const row = (r) => `<tr><td>${r.final_place ? `<span class="place ${r.final_place <= 3 ? `p${r.final_place}` : ''}">${r.final_place}</span>` : '<span class="badge disqualified">DQ</span>'}</td>
-      <td><b>${esc(r.name)}</b> <span class="muted small">${esc(r.country || '')}</span></td><td class="muted">${r.bib}</td>
+    // Division filter: overall, men, women, or one age group. The place column shows the place within the chosen division.
+    const divs = [...new Set(d.standings.map((r) => r.division).filter(Boolean))].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+    $('div').innerHTML = '<option value="">Overall</option><option value="Male">Men</option><option value="Female">Women</option>'
+      + divs.map((v) => `<option>${esc(v)}</option>`).join('');
+    const placeOf = (r) => { const f = $('div').value; return !f ? r.final_place : ['Male', 'Female'].includes(f) ? r.gender_place : r.ag_place; };
+    const row = (r) => `<tr><td>${placeOf(r) ? `<span class="place ${placeOf(r) <= 3 ? `p${placeOf(r)}` : ''}">${placeOf(r)}</span>` : '<span class="badge disqualified">DQ</span>'}</td>
+      <td><b>${esc(r.name)}</b> <span class="muted small">${esc(r.country || '')}</span>${r.award ? ` <span title="Award: ${esc(r.award.category)}">🏅</span>` : ''}</td>
+      <td><span class="division-tag">${esc(r.division || '—')}</span></td><td class="muted">${r.bib}</td>
       <td class="r num">${r.status === 'active' ? `${d.days} days ✓` : r.status === 'disqualified' ? 'DQ' : `${r.eliminated_day - 1} days`}</td><td class="r num">${dist(r.distance_m)}</td></tr>`;
     const draw = (q = '') => {
       const s = q.toLowerCase();
-      $('standings').innerHTML = d.standings.filter((r) => !s || `${r.name} ${r.country}`.toLowerCase().includes(s)).slice(0, 300).map(row).join('');
+      const f = $('div').value;
+      const inDiv = (r) => !f || r.sex === f || r.division === f;
+      $('standings').innerHTML = d.standings.filter((r) => inDiv(r) && (!s || `${r.name} ${r.country}`.toLowerCase().includes(s))).slice(0, 300).map(row).join('');
     };
     draw();
     $('search').addEventListener('input', (e) => draw(e.target.value));
+    $('div').addEventListener('change', () => draw($('search').value));
     const drawFastest = () => {
       $('fastest').innerHTML = d.fastest_by_day.map((f) => `<tr><td>Day ${f.race_day}</td><td>${esc(f.name)}</td><td class="r num">${pace(f.pace, 1000)}</td></tr>`).join('');
     };

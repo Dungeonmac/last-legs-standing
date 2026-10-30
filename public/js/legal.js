@@ -1,7 +1,19 @@
 // Single source of truth for the Rules, the Waiver and the Privacy summary.
 // WAIVER_VERSION must match the server (src/server/app.js); bump both whenever the waiver text changes.
 
-export const WAIVER_VERSION = '2026-10-29';
+import { SUPPORT } from './common.js';
+import { AGE_GROUP_LIST } from './divisions.js';
+
+export const WAIVER_VERSION = '2026-10-30.2';
+
+// The five golden rules: the short version every runner must know. RULES below is the full rulebook.
+export const GOLDEN_RULES = [
+  ['One more kilometer, every day.', 'Day 1 is 1 km, Day 2 is 2 km, and it keeps climbing. There is no finish day.'],
+  ['Full distance by 23:59:59 UTC, or you’re out.', 'Upload at least the day’s distance before the deadline. Close doesn’t count. Run 2–3% extra for GPS.'],
+  ['Outside, with GPS.', 'Run anywhere, in one run or several, but record it outdoors with GPS. No treadmills.'],
+  ['Your legs only.', 'Every run is verified. Vehicles, bikes, someone else running for you or edited files mean disqualification.'],
+  ['Last one standing wins.', 'The race ends when one runner or none is left. Awards go to the top 3 overall, men, women and every age group.'],
+];
 
 export const RULES = [
   ['One more kilometer, every day.', 'Day 1 is 1 km (0.62 mi). Day 2 is 2 km. Day 10 is 10 km. The distance due on any day equals the day number, in kilometers, and it never stops climbing.'],
@@ -9,17 +21,24 @@ export const RULES = [
   ['Run anywhere.', 'Road, trail, track, park loops, any country. Your route is your choice. Runs must be recorded outdoors with GPS (a watch, phone app, or our built-in tracker) so they can be verified. Treadmill runs cannot be verified and do not count.'],
   ['One run or several. Your call.', 'You can cover the day’s distance in one continuous run or split it into as many runs as you like (for example 10 km in the morning and 8 km at night). Your runs for the day are added together. Each run must start and finish inside the same race day.'],
   ['No minimum pace.', 'Run, jog, hike or walk. The only time limit is the end of the race day.'],
-  ['The full distance or you’re out.', 'Your recorded GPS distance for the day must reach the full distance due. Close doesn’t count, and nothing is rounded up. GPS can read slightly short, so run a little extra (we recommend 2–3%).'],
-  ['Miss a day and you’re eliminated.', 'If you don’t upload the full distance before the deadline, you’re eliminated when the clock hits 23:59:59 UTC. Elimination is final.'],
+  ['The full distance or you’re out.', 'Your recorded GPS distance for the day must reach the full distance due. Close doesn’t count, nothing is rounded up, and there is no GPS tolerance. GPS can read slightly short, so run 2–3% extra every day.'],
+  ['Miss a day and you’re eliminated.', 'If you don’t upload the full distance before the deadline, you’re eliminated when the clock hits 23:59:59 UTC. Elimination is final. Getting your run uploaded in time is your responsibility. Dead batteries, app or device problems, and help requests sent after or too close to the deadline do not extend it.'],
   ['Every run is verified.', 'Each upload is automatically checked for date, speed, GPS integrity and duplicates. Suspicious runs are reviewed by race officials. A flagged run counts provisionally until it’s reviewed. If a run is rejected, it doesn’t count, which may eliminate you for that day.'],
   ['Cheat and you’re disqualified.', 'Using a vehicle, bike or scooter, having someone else run for you, uploading old, edited or fabricated files, or running more than one account means disqualification. A disqualified runner loses any placing and prize, forfeits the entry fee, and may be banned from future events.'],
   ['Last legs standing wins.', 'The race ends at the first deadline when one runner or none is left. If the final runners are all eliminated on the same day, the runner with the longest total distance across the whole race places highest. If total distance is exactly equal, the fastest total moving time places highest. 2nd and 3rd place are decided the same way.'],
-  ['Prizes for the top three.', '1st, 2nd and 3rd place win prizes, which are announced on the event page before the start.'],
+  ['Awards: overall, men, women and age groups.', `Awards go three deep in every category: the top 3 overall, the top 3 men, the top 3 women, and the top 3 men and top 3 women in each age group (${AGE_GROUP_LIST}). Your age group is your age on Day 1. Every category is ranked the same way as the overall race. You can win only one award, your highest: overall first, then men’s or women’s, then age group. When a runner moves up to a higher award, the next runner in line takes their place. Only award winners receive a finisher shirt and medal, shipped to them after the race. Any prizes are announced on the event page before the start.`],
+  ['Under 18? Bring a parent or guardian.', 'Runners of any age can enter. A runner who is under 18 on the start date needs a parent or legal guardian to give consent and sign the waiver at sign-up. The parent or guardian is responsible for the young runner’s safety and supervision.'],
   ['Your safety comes first.', 'Obey traffic laws, run where it is legal and safe, and stop if you feel unwell. No finish is worth a serious injury. Officials’ decisions on verification, eliminations and disqualifications are final.'],
 ];
 
+export function goldenRulesHTML() {
+  return `<ol class="golden-rules">${GOLDEN_RULES.map(([t, d]) => `<li><b>${t}</b><p>${d}</p></li>`).join('')}</ol>`;
+}
+
 export function rulesHTML() {
-  return `<ol class="rules">${RULES.map(([t, d]) => `<li><div><b>${t}</b><p>${d}</p></div></li>`).join('')}</ol>`;
+  return `${goldenRulesHTML()}
+    <h3 class="rules-rest-title">The full rules</h3>
+    <ol class="rules">${RULES.map(([t, d]) => `<li><div><b>${t}</b><p>${d}</p></div></li>`).join('')}</ol>`;
 }
 
 export const WAIVER_HTML = `
@@ -54,10 +73,11 @@ export const WAIVER_HTML = `
 <p>I agree that my run data, including GPS tracks, timestamps, speed and sensor data, may be analyzed automatically and reviewed by officials to verify compliance. Decisions by race officials on verification, eliminations, disqualifications, placings and prizes are final. The Releasees are not responsible for device, GPS, connectivity, third-party platform (such as Strava or Garmin) or website failures, and such failures do not entitle me to reinstatement. Entry fees are non-refundable, including if I am eliminated, disqualified or withdraw, except where refunds are required by law. Prizes may be subject to verification, identity checks and applicable taxes, which are my responsibility.</p>
 
 <h3>10. Publicity</h3>
-<p>I consent to the publication of my first name, last initial, country, bib number, race status and results on the website and in Challenge communications, and to the use of any photos, quotes or content I voluntarily submit, without compensation.</p>
+<p>I consent to the publication of my first name, last initial, country, bib number, division (sex and age group), race status and results on the website and in Challenge communications, and to the use of any photos, quotes or content I voluntarily submit, without compensation.</p>
 
-<h3>11. Age and capacity</h3>
-<p>I confirm that I am at least 18 years old, legally competent to sign this Agreement, and not under the influence of anything that impairs my judgment.</p>
+<h3>11. Age, capacity and participants under 18</h3>
+<p>If I am 18 or older, I confirm that I am legally competent to sign this Agreement and not under the influence of anything that impairs my judgment. If I am under 18 on the start date, I may take part only with the consent of my parent or legal guardian, who must also sign this Agreement.</p>
+<p><b>Parent or guardian consent.</b> A parent or legal guardian who signs for a participant under 18 confirms that: they are the participant’s parent or legal guardian, with legal authority to sign for them; they have read this Agreement and the Rules and explained them to the participant; they give permission for the participant to take part; and they are responsible for supervising the participant’s training and running, including where, when and how far the participant runs. The parent or guardian agrees, on their own behalf and on behalf of the participant, to every assumption of risk, release, waiver, covenant not to sue and indemnity in this Agreement, to the fullest extent permitted by law. They also agree to indemnify the Releasees for any claim brought by or on behalf of the participant. <b>The parent or guardian understands that the Challenge is an escalating endurance event with no fixed end, and that it is their responsibility to stop the participant from running whenever continuing is unsafe.</b></p>
 
 <h3>12. Governing law, severability and entire agreement</h3>
 <p>This Agreement is governed by the laws of [GOVERNING STATE / JURISDICTION], without regard to conflict-of-law rules, and any dispute will be resolved exclusively in the courts located in [COUNTY, STATE]. This Agreement is intended to be as broad and inclusive as the law allows. If any part is held invalid or unenforceable, that part will be enforced to the maximum extent permitted and the rest will remain in full force. This Agreement, together with the Rules and Privacy Policy, is the entire agreement on this subject and binds my heirs and assigns.</p>
@@ -70,19 +90,21 @@ export const WAIVER_HTML = `
 
 export const PRIVACY_HTML = `
 <h3>The short version</h3>
-<p><b>We never sell, rent or trade your personal information.</b> We collect only what we need to run the Challenge, verify runs, and get shirts, medals and prizes to you.</p>
+<p><b>We never sell, rent or trade your personal information.</b> We collect only what we need to run the Challenge, verify runs, and send shirts, medals and prizes to award winners.</p>
 
 <h3>What we collect</h3>
 <ul>
-  <li><b>Account &amp; runner details:</b> name, email, date of birth, gender (optional), country, phone, emergency contact, shirt size, and whether you’ve raced before.</li>
-  <li><b>Addresses:</b> your shipping address (for shirts, medals and prizes) and billing address.</li>
+  <li><b>Account &amp; runner details:</b> name, email, date of birth, gender, country, phone, emergency contact, shirt size (used only if you win an award), and whether you’ve raced before.</li>
+  <li><b>Parent or guardian (runners under 18):</b> their name, relationship to the runner, email, phone and typed signature.</li>
+  <li><b>Help requests:</b> the messages you send us through the Help page.</li>
+  <li><b>Addresses:</b> your shipping address (used only to send shirts, medals and prizes if you win an award) and billing address.</li>
   <li><b>Payment:</b> card payments are processed by our payment provider. Your full card number never touches our servers.</li>
   <li><b>Run data:</b> the GPS files and tracks you upload or record, including timestamps, distance, pace, heart rate and cadence if present.</li>
   <li><b>Waiver record:</b> your typed signature, the time, the waiver version and your IP address.</li>
 </ul>
 
 <h3>What’s public</h3>
-<p>Leaderboards and results show only your <b>first name, last initial, country, bib number, status and race statistics</b>. Your route maps, email, phone, birthday and addresses are never public.</p>
+<p>Leaderboards and results show only your <b>first name, last initial, country, bib number, division (for example “Women 30–39”), status and race statistics</b>. Your route maps, email, phone, exact birth date and addresses are never public.</p>
 
 <h3>Who we share with</h3>
 <p>Only the service providers needed to operate the Challenge (hosting, payments, shipping) and only for that purpose, or when required by law. If you connect Strava, we read only the activities you choose to import.</p>
@@ -91,5 +113,5 @@ export const PRIVACY_HTML = `
 <p>We keep race records and results to maintain event history. You can ask us to delete your account and personal data at any time, except records we must keep for legal, tax or anti-fraud reasons.</p>
 
 <h3>Your rights</h3>
-<p>You can access, correct, export or delete your data by contacting us at [CONTACT EMAIL].</p>
+<p>You can access, correct, export or delete your data by emailing <a href="mailto:${SUPPORT.email}">${SUPPORT.email}</a> or through the <a href="/help.html">Help page</a>.</p>
 `;

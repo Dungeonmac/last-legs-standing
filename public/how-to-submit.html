@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>How to submit a run · Last Legs Standing</title>
+  <meta name="description" content="Step-by-step: record and submit your daily run with the built-in phone tracker, Strava, or any GPS watch.">
+  <meta name="theme-color" content="#0c0d0f">
+  <link rel="icon" href="/img/favicon.svg" type="image/svg+xml">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body data-page="guide">
+<main id="main">
+  <section class="page-head"><div class="wrap">
+    <div class="eyebrow">Step by step</div>
+    <h1 class="display" style="font-size:clamp(2.4rem,6vw,4rem)">How to submit your run</h1>
+    <p class="lead">There are three ways to do it. Pick the one that suits you. Each one takes about a minute once you’ve done it the first time.</p>
+    <div id="my-target"></div>
+  </div></section>
+
+  <section class="section" style="padding-top:2.5rem"><div class="wrap" style="max-width:900px">
+
+    <div class="card raise">
+      <h2 style="margin-top:0">The 4 golden rules</h2>
+      <ol class="steps" style="margin-top:.6rem">
+        <li><div><b class="t">Run outside with GPS.</b><p>Treadmill runs don’t count. Your phone or watch must record where you ran.</p></div></li>
+        <li><div><b class="t">Run the full distance, plus a little extra.</b><p>Day 10 means 10 km. GPS can read a little short, and there is no tolerance, so run 2–3% more.</p><span class="eg">Day 10 → run about 10.3 km</span></div></li>
+        <li><div><b class="t">Start and finish on the same race day.</b><p>Every race day runs from 00:00 to 23:59:59 UTC. That’s <b id="day-local">—</b> where you are.</p></div></li>
+        <li><div><b class="t">Upload early. Don’t wait for the last minute.</b><p>If something goes wrong, you want hours to fix it, not minutes. The deadline never moves.</p></div></li>
+      </ol>
+    </div>
+
+    <h2 style="margin-top:3rem">Pick your way</h2>
+    <div class="path-pick">
+      <a class="path-card" href="#tracker"><span class="big" aria-hidden="true">📱</span><span class="tag">Easiest</span><b>A. Our tracker</b><span class="small ink2">Just your phone. Nothing to install. Press Start, run, press Finish.</span></a>
+      <a class="path-card" href="#strava"><span class="big" aria-hidden="true">🟧</span><b>B. Strava</b><span class="small ink2">Already use Strava? Record as usual, then import with one tap.</span></a>
+      <a class="path-card" href="#watch"><span class="big" aria-hidden="true">⌚</span><b>C. Any other app or watch</b><span class="small ink2">Garmin, Coros, Apple Watch, Suunto, Polar, Runkeeper and more. Upload the run file.</span></a>
+    </div>
+
+    <!-- A. Tracker -->
+    <div class="guide-part" id="tracker">
+      <div class="eyebrow">Option A</div>
+      <h2 class="display" style="font-size:clamp(1.9rem,4.5vw,2.8rem)">Our built-in phone tracker</h2>
+
+      <h3 style="margin-top:1.5rem">Do this once, before Day 1</h3>
+      <ol class="steps">
+        <li><div><b class="t">Log in on your phone.</b><p>Open this website on your phone and log in with the email and password you signed up with.</p></div></li>
+        <li><div><b class="t">Put it on your home screen.</b><p><b>iPhone:</b> in Safari, tap the Share button (the square with an arrow ⬆) and choose <b>Add to Home Screen</b>.<br><b>Android:</b> in Chrome, tap the <b>⋮</b> menu and choose <b>Install app</b> or <b>Add to Home screen</b>.</p><span class="eg">Now it opens like an app</span></div></li>
+        <li><div><b class="t">Allow location.</b><p>Open <b>Tracker</b>. When your phone asks to use your location, tap <b>Allow</b>. Without it, we can’t record your run.</p></div></li>
+        <li><div><b class="t">Know the one rule: keep it on screen.</b><p>While the tracker is open, we keep your screen awake for you, so there’s nothing to change in your settings. Just don’t press the lock button or switch apps during the run. Phones pause GPS for websites in the background. Want music? Start it <b>before</b> you open the tracker.</p><p id="no-wakelock" class="hidden" style="margin-top:.5rem;color:var(--wait)"><b>Your browser can’t keep the screen awake.</b> Before each run, turn off auto-lock: <b>iPhone:</b> Settings → Display &amp; Brightness → Auto-Lock → Never. <b>Android:</b> Settings → Display → Screen timeout → longest. Switch it back afterwards. Or update your phone.</p></div></li>
+      </ol>
+
+      <h3 style="margin-top:2rem">Every race day</h3>
+      <ol class="steps">
+        <li><div><b class="t">Go outside and open Tracker.</b><p>Tap <b>Tracker</b> in the bar at the bottom of the screen.</p></div></li>
+        <li><div><b class="t">Wait for the green dot.</b><p>At the top right you’ll see <b>GPS</b> with a dot. Wait until it turns <b style="color:var(--good)">green</b>. That usually takes a few seconds.</p></div></li>
+        <li><div><b class="t">Tap START RUN and go.</b><p>Keep the page open and the screen on. You can hold your phone or keep it in a pocket or armband.</p></div></li>
+        <li><div><b class="t">Watch “To go today”.</b><p>It counts down the distance you still need. When it shows <b>✓</b>, you’ve done the distance. Keep going a little longer to be safe.</p></div></li>
+        <li><div><b class="t">Tap FINISH &amp; SUBMIT.</b><p>Wait a few seconds. You’ll see <b style="color:var(--good)">Run approved</b> and <b style="color:var(--good)">✓ Day complete</b>. That’s it. See you tomorrow.</p></div></li>
+      </ol>
+      <div class="tip"><b>Need a break?</b> Tap <b>Pause</b>, then <b>Resume</b> when you’re ready. You can also do two shorter runs on the same day. They’re added together.</div>
+      <div class="tip"><b>Page closed by accident?</b> Just open Tracker again. Your run is saved on your phone and picks up where it left off.</div>
+      <div class="tip"><b>Long runs, or need your phone mid-run?</b> Use Strava (Option B) or a watch (Option C). Those apps keep recording in your pocket with the screen off.</div>
+    </div>
+
+    <!-- B. Strava -->
+    <div class="guide-part" id="strava">
+      <div class="eyebrow">Option B</div>
+      <h2 class="display" style="font-size:clamp(1.9rem,4.5vw,2.8rem)">Strava</h2>
+      <h3 style="margin-top:1.5rem">Do this once</h3>
+      <ol class="steps">
+        <li><div><b class="t">Get the free Strava app.</b><p>Download Strava from the App Store or Google Play and create a free account.</p></div></li>
+        <li><div><b class="t">Connect Strava to your race.</b><p>On this site, open <b>Upload</b> and tap <b>Connect with Strava</b>, then tap <b>Authorize</b>. We only read the runs you choose to import.</p></div></li>
+      </ol>
+      <h3 style="margin-top:2rem">Every race day</h3>
+      <ol class="steps">
+        <li><div><b class="t">Record your run in Strava.</b><p>Tap <b>Record</b>, make sure the activity type is <b>Run</b>, then tap <b>Start</b>. When you’re done, tap <b>Finish</b> and <b>Save</b>.</p></div></li>
+        <li><div><b class="t">Open Upload on this site.</b><p>Your runs from today appear in the Strava box.</p></div></li>
+        <li><div><b class="t">Tap IMPORT next to your run.</b><p>You’ll see <b style="color:var(--good)">Accepted</b> and how much of today’s distance you’ve done.</p></div></li>
+      </ol>
+      <div class="tip"><b>Don’t see your run?</b> Wait until Strava has finished saving it, then refresh the Upload page. If one-tap Strava import isn’t switched on yet, use Option C. Strava can export your run as a GPX file.</div>
+    </div>
+
+    <!-- C. Watch -->
+    <div class="guide-part" id="watch">
+      <div class="eyebrow">Option C</div>
+      <h2 class="display" style="font-size:clamp(1.9rem,4.5vw,2.8rem)">Any other app or watch</h2>
+      <p class="ink2">Any app or watch that records <b>GPS</b> works, as long as it can give you the run as a file (<b>.fit</b>, <b>.gpx</b> or <b>.tcx</b>), or send it to Strava. Garmin, Coros, Suunto, Polar, Wahoo and most phone running apps can do one or the other. <b>Tip:</b> if your app or watch already sends runs to Strava, Option B is the quickest.</p>
+      <div class="tip"><b>Apps with no export button</b> (for example, Nike Run Club and Apple’s own Workout app) can’t hand you a file directly. With an Apple Watch, connect the Strava app to Apple Health and your runs show up in Strava (Option B). With Nike Run Club, switch to our tracker or Strava for the race.</div>
+      <ol class="steps">
+        <li><div><b class="t">Record your run on your watch.</b><p>Choose a GPS run (an outdoor run, not treadmill or indoor) and start once the watch has found GPS.</p></div></li>
+        <li><div><b class="t">Let it sync to the watch’s app.</b><p>For example Garmin Connect, COROS or Suunto, on your phone or computer.</p></div></li>
+        <li><div><b class="t">Export the run file.</b><p>Find the run in your watch’s app and choose <b>Export</b>. Pick <b>.FIT</b> or <b>.GPX</b> if it asks. There are instructions for each brand on the <a href="/upload.html">Upload page</a>.</p></div></li>
+        <li><div><b class="t">Upload it here.</b><p>Open <b>Upload</b>, tap <b>Choose file</b>, and pick the file you just exported. On a phone, look in <b>Files → Downloads</b> (iPhone) or <b>Downloads</b> (Android).</p></div></li>
+        <li><div><b class="t">Check that it was accepted.</b><p>You’ll see <b style="color:var(--good)">Accepted</b> and today’s progress right away.</p></div></li>
+      </ol>
+      <div class="tip"><b>Garmin gave you a .zip file?</b> Open it first (tap it on a phone, or double-click it on a computer). Then upload the .fit file that’s inside.</div>
+    </div>
+
+    <!-- Check -->
+    <div class="guide-part" id="check">
+      <div class="eyebrow">Did it count?</div>
+      <h2 class="display" style="font-size:clamp(1.9rem,4.5vw,2.8rem)">Check your day</h2>
+      <p class="ink2">Open <b>My race</b>. When the bar turns green and says <b style="color:var(--good)">✓ Today’s distance complete</b>, you’re through to tomorrow. Every run gets one of these labels:</p>
+      <div class="stack">
+        <div class="row"><span class="badge approved">approved</span><span class="ink2">It counts. You’re done.</span></div>
+        <div class="row"><span class="badge flagged">flagged</span><span class="ink2">It counts for now. A race official will double-check it.</span></div>
+        <div class="row"><span class="badge rejected">rejected</span><span class="ink2">It doesn’t count. Read the reason, then record and upload another run before the deadline.</span></div>
+      </div>
+    </div>
+
+    <!-- Trouble -->
+    <div class="guide-part" id="trouble">
+      <div class="eyebrow">Troubleshooting</div>
+      <h2 class="display" style="font-size:clamp(1.9rem,4.5vw,2.8rem)">Something went wrong?</h2>
+      <details><summary>“Wrong day” or “old run”</summary><p>The run must start and finish inside today’s race day (00:00–23:59:59 UTC). A run from yesterday can’t be used today. Run again today and upload it.</p></details>
+      <details><summary>“Not a run” or “no GPS”</summary><p>Treadmill runs, indoor runs and runs typed in by hand have no GPS track, so they can’t count. Record outside with GPS turned on.</p></details>
+      <details><summary>I’m a little short of today’s distance</summary><p>No problem, as long as there’s time left. Go out and run the rest, then upload it. All your runs from the same day are added together.</p></details>
+      <details><summary>The tracker stopped when my screen locked</summary><p>Open Tracker again. Your run is saved and keeps going. The part you ran while the screen was off only counts as a straight line, so check “To go today” and run a bit more if you need to. Next time, keep the tracker on screen (see Option A, step 4), or use Strava or a watch.</p></details>
+      <details><summary>My file won’t upload</summary><p>Only <b>.gpx</b>, <b>.tcx</b> and <b>.fit</b> files work. If you have a .zip file, open it first. If it still won’t work, try exporting as GPX instead.</p></details>
+      <details><summary>“No timestamps” or my run shows the wrong day</summary><p>Some apps export a <b>route</b> (just the map line) instead of the <b>activity</b>. A route has no times, so we can’t tell when you ran it. Export the activity itself, or use Strava or our tracker.</p></details>
+      <details><summary>Can I send a screenshot instead?</summary><p>No. A screenshot can’t be checked for date, speed or GPS, so it can’t count. Every run has to be a real GPS recording.</p></details>
+      <details><summary>I can’t log in</summary><p>Check that you’re using the email you signed up with. If you still can’t get in, contact us with the topic <b>Account or login</b>.</p></details>
+    </div>
+
+    <div class="help-cta">
+      <div>
+        <h3 style="margin:0">Still stuck?</h3>
+        <p class="ink2 small" style="margin:.3rem 0 0">Contact us <b>early</b>. If you reach out after the cutoff, or too close to it for us to help, a missed run is your own responsibility.</p>
+      </div>
+      <a class="btn lg" href="/help.html?topic=Uploading%20a%20run">Get help</a>
+    </div>
+  </div></section>
+</main>
+<script type="module">
+  import { mountChrome, api, fmtLocal, both } from '/js/common.js';
+  const me = await mountChrome();
+  if (!('wakeLock' in navigator)) document.getElementById('no-wakelock').classList.remove('hidden');
+  const now = new Date();
+  const start = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+  const t = (ms) => new Date(ms).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+  document.getElementById('day-local').textContent = `${t(start)} to ${t(start + 86_399_000)} (${Intl.DateTimeFormat().resolvedOptions().timeZone})`;
+
+  // Personal target for runners who are in a live race
+  if (me.user) {
+    const d = await api('/dashboard').catch(() => null);
+    const r = d?.race;
+    if (r?.status === 'active') {
+      const left = Math.max(0, r.due_m - r.done_m);
+      document.getElementById('my-target').innerHTML = `
+        <div class="card raise" style="margin-top:1.5rem;max-width:620px">
+          <div class="label-text">Your race today: Day ${r.day}</div>
+          <div style="font-size:1.3rem;font-weight:800;margin:.3rem 0">${left ? `Run at least <span class="accent">${both(left * 1.03, 2)}</span>` : '<span style="color:var(--good)">✓ Today is done. See you tomorrow!</span>'}</div>
+          <div class="small ink2">${left ? `That includes 3% extra for GPS. ` : ''}Deadline: ${fmtLocal(r.deadline)}</div>
+        </div>`;
+    }
+  }
+</script>
+</body>
+</html>

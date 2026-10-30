@@ -18,6 +18,9 @@ bucket_name = "lls-uploads"
 SITE_NAME = "Last Legs Standing"
 # Comma-separated emails that get admin rights.
 ADMIN_EMAILS = "admin@lastlegsstanding.test"
+# Help desk messages are forwarded here (once RESEND_API_KEY is set) and always kept in Admin.
+SUPPORT_EMAIL = "jeffeersonjeff546@gmail.com"
 # Secrets (set with `wrangler pages secret put NAME`, or in .dev.vars locally):
 #   STRIPE_SECRET_KEY, STRIPE_PUBLISHABLE_KEY  -> real card payments (otherwise demo mode)
 #   STRAVA_CLIENT_ID, STRAVA_CLIENT_SECRET     -> "Connect Strava" button
+#   RESEND_API_KEY                             -> emails help desk messages to SUPPORT_EMAIL

@@ -19,8 +19,10 @@
   <section class="section" style="padding-top:2rem"><div class="wrap" style="max-width:720px">
     <div class="row between">
       <div><div class="eyebrow" style="margin-bottom:.2rem">Built-in tracker</div><div id="day-line" class="ink2 small"></div></div>
-      <div class="small"><span class="gps-dot" id="gps-dot"></span><span id="gps-text">GPS off</span></div>
+      <div class="small" style="text-align:right"><div><span class="gps-dot" id="gps-dot"></span><span id="gps-text">GPS off</span></div>
+        <div class="muted" id="awake-text"></div></div>
     </div>
+    <div id="awake-warn"></div>
 
     <div class="center" style="margin:1.6rem 0 1rem">
       <div class="tracker-big" id="t-dist">0.00</div>
@@ -33,7 +35,7 @@
     </div>
     <div class="progress" style="margin-top:1rem"><span id="t-bar" style="width:0%"></span></div>
 
-    <div class="row" style="justify-content:center;margin:1.6rem 0">
+    <div class="row tracker-controls" style="justify-content:center;margin:1.6rem 0">
       <button class="btn lg" id="b-start">Start run</button>
       <button class="btn ghost lg hidden" id="b-pause">Pause</button>
       <button class="btn gold lg hidden" id="b-finish">Finish &amp; submit</button>
@@ -43,13 +45,28 @@
     <div class="map" id="map" style="height:280px"></div>
 
     <div class="card" style="margin-top:1.5rem">
+      <h3>How to use it, in 5 steps</h3>
+      <ol class="steps" style="margin-top:.6rem">
+        <li><div><b class="t">Go outside and wait for the green dot.</b><p>The GPS dot is at the top right of this page.</p></div></li>
+        <li><div><b class="t">Tap START RUN.</b><p>Keep this page open and your screen on.</p></div></li>
+        <li><div><b class="t">Run until “To go today” shows ✓.</b><p>Then run a little more, in case your GPS reads short.</p></div></li>
+        <li><div><b class="t">Tap FINISH &amp; SUBMIT.</b><p>Wait for “Run approved”.</p></div></li>
+        <li><div><b class="t">Done for today.</b><p>Check <a href="/account.html">My race</a> for the green ✓.</p></div></li>
+      </ol>
+    </div>
+
+    <div class="card" style="margin-top:1.5rem">
       <h3>Before you go</h3>
       <ul class="small ink2" style="padding-left:1.1rem;margin:0">
-        <li><b>Keep this page open and your screen on.</b> We ask your phone to stay awake, but most phones stop web GPS when the screen locks. For long runs, a watch or the Strava app is more reliable.</li>
+        <li><b>Keep this page open and on screen.</b> We keep your screen awake for you while the tracker is open. Don’t press the lock button or switch to another app: phones pause GPS for websites in the background. If you want to listen to music or use your phone during the run, start the music first, or record with Strava or your watch instead.</li>
         <li>Add this page to your home screen (Share → <i>Add to Home Screen</i> on iPhone, ⋮ → <i>Install app</i> on Android) to use it like an app.</li>
         <li>Your track is saved on your phone as you go, so a refresh won’t lose it.</li>
         <li>The run must start and finish before the 23:59:59 UTC deadline. You’ll get a warning 15 minutes before.</li>
       </ul>
+    </div>
+    <div class="help-cta" style="margin-top:2rem">
+      <div><h3 style="margin:0">Not sure what to do?</h3><p class="ink2 small" style="margin:.3rem 0 0">Follow the <a href="/how-to-submit.html">step-by-step guide</a>, or contact us. Reach out early: help requests don’t extend the deadline.</p></div>
+      <div class="row"><a class="btn ghost" href="/how-to-submit.html">How to submit</a><a class="btn" href="/help.html?topic=Built-in%20tracker">Help</a></div>
     </div>
   </div></section>
 </main>
@@ -148,10 +165,42 @@
     watchId = navigator.geolocation.watchPosition(onPos, (e) => { gps(null); msg('error', `GPS error: ${esc(e.message)}. Allow location access for this site.`); },
       { enableHighAccuracy: true, maximumAge: 0, timeout: 20_000 });
   }
-  async function keepAwake() {
-    try { wake = await navigator.wakeLock?.request('screen'); } catch { /* not supported */ }
+  // Phone browsers pause GPS when the screen locks or another app is opened. We can't change that, so we
+  // (1) keep the screen awake while this page is open, and (2) tell the runner if recording was interrupted.
+  const canStayAwake = 'wakeLock' in navigator;
+  function awakeStatus(on) {
+    $('awake-text').innerHTML = on ? '☀ Screen stays on' : '';
+    if (!canStayAwake) {
+      $('awake-warn').innerHTML = `<div class="alert warn small" style="margin-top:1rem"><b>This browser can’t keep your screen on.</b>
+        Before you run, turn off auto-lock (iPhone: Settings → Display &amp; Brightness → Auto-Lock → Never · Android: Settings → Display → Screen timeout → longest),
+        or update your phone. Or record with Strava or your watch instead.</div>`;
+    }
   }
-  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && s.status === 'running') keepAwake(); });
+  async function keepAwake() {
+    if (!canStayAwake) return awakeStatus(false);
+    try {
+      wake = await navigator.wakeLock.request('screen');
+      awakeStatus(true);
+      wake.addEventListener('release', () => awakeStatus(false));
+    } catch { awakeStatus(false); }
+  }
+  awakeStatus(false);
+  let hiddenAt = null;
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') {
+      if (s.status === 'running') hiddenAt = Date.now();
+      return;
+    }
+    if (s.status !== 'running') return;
+    keepAwake();
+    const gap = hiddenAt ? Date.now() - hiddenAt : 0;
+    hiddenAt = null;
+    if (gap > 20_000) {
+      msg('warn', `<b>Your phone paused GPS for ${Math.round(gap / 60_000) || 1} min</b> while the screen was off or you were in another app.
+        Only the straight line between where it stopped and where it restarted counts. Keep this page open and on screen while you run.`);
+      navigator.vibrate?.([200, 100, 200]);
+    }
+  });
 
   $('b-start').addEventListener('click', () => {
     s = { status: 'running', points: [], distance: 0, movingMs: 0, segStart: Date.now() };

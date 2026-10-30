@@ -46,7 +46,7 @@
             <td class="r num">${s.returners || 0} <span class="muted">(${pct(s.returners, s.total)}%)</span></td>
             <td class="r num">${s.active ?? '–'}</td><td class="r num">${s.dq || 0}</td>
             <td class="r num">${money(s.revenue_cents || 0)}</td>
-            <td><button class="btn ghost sm" data-runners="${e.slug}">Runners</button></td></tr>`; }).join('')}</tbody></table></div>
+            <td><div class="row" style="gap:.4rem;flex-wrap:nowrap"><button class="btn ghost sm" data-runners="${e.slug}">Runners</button><button class="btn ghost sm" data-awards="${e.slug}">Awards</button></div></td></tr>`; }).join('')}</tbody></table></div>
       </div>
 
       <div class="card">
@@ -66,7 +66,28 @@
               <button class="btn danger sm" data-review="${q.id}" data-action="reject">Reject</button></div></td></tr>`).join('')}</tbody></table></div>`
           : '<div class="empty">Nothing to review. 🎉</div>'}
       </div>
+      <div id="support"></div>
       <div id="runners"></div>`;
+    loadSupport();
+  }
+
+  async function loadSupport() {
+    const s = await api('/admin/support');
+    const open = s.messages.filter((m) => m.status === 'open').length;
+    $('support').innerHTML = `<div class="card">
+      <div class="row between"><h3 style="margin:0">Help desk inbox</h3><span class="muted small">${open} open · ${s.messages.length} total</span></div>
+      <p class="small ink2">${s.emailEnabled
+        ? `New messages are also emailed to <b>${esc(s.supportEmail)}</b>.`
+        : `Messages are saved here. They’re not emailed yet: set <code>RESEND_API_KEY</code> to forward them to <b>${esc(s.supportEmail || 'SUPPORT_EMAIL')}</b>.`}</p>
+      ${s.messages.length ? `<div class="stack">${s.messages.map((m) => `
+        <div class="tile" style="${m.status === 'closed' ? 'opacity:.55' : ''}">
+          <div class="row between"><div><b>#${m.id} · ${esc(m.topic)}</b> <span class="badge ${m.status === 'open' ? 'flagged' : 'completed'}">${m.status}</span>${m.emailed ? ' <span class="badge approved">emailed</span>' : ''}</div>
+            <span class="small muted">${fmtLocal(Date.parse(m.created_at))}</span></div>
+          <div class="small" style="margin:.3rem 0"><b>${esc(m.name)}</b> · <a href="mailto:${esc(m.email)}?subject=${encodeURIComponent(`Re: [Help #${m.id}] ${m.topic}`)}">${esc(m.email)}</a>${m.bib ? ` · Bib #${esc(m.bib)}` : ''}</div>
+          <p class="ink2" style="white-space:pre-wrap;margin:.4rem 0">${esc(m.message)}</p>
+          <button class="btn ghost sm" data-support="${m.id}" data-status="${m.status === 'open' ? 'closed' : 'open'}">${m.status === 'open' ? 'Mark as done' : 'Reopen'}</button>
+        </div>`).join('')}</div>` : '<div class="empty">No messages yet.</div>'}
+    </div>`;
   }
 
   async function showRunners(slug) {
@@ -93,7 +114,33 @@
   }
   let currentSlug = null;
 
+  // Award winners and where to ship their shirt + medal (only award winners get them).
+  async function showAwards(slug) {
+    const d = await api(`/admin/events/${slug}/awards`);
+    const lines = d.awards.flatMap((c) => c.winners.map((w) => ({ ...w, category: c.title })));
+    const addr = (w) => [w.line1, w.line2, w.city, w.region, w.postal, w.ship_country].filter(Boolean).join(', ');
+    const csv = [['Award', 'Place', 'Name', 'Email', 'Phone', 'Shirt', 'Address'],
+      ...lines.map((w) => [w.category, w.award_place, w.full_name, w.email, w.phone, w.shirt_size, addr(w)])]
+      .map((r) => r.map((v) => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')).join('
+');
+    $('runners').innerHTML = `<div class="card">
+      <div class="row between"><h3 style="margin:0">${esc(d.event.name)}: award winners &amp; shipping</h3>
+        <a class="btn ghost sm" download="${slug}-awards.csv" href="data:text/csv;charset=utf-8,${encodeURIComponent(csv)}">Download CSV</a></div>
+      <p class="small ink2">${d.final ? 'Final results. Ship a shirt and medal to each runner below.' : 'The race isn’t finished, so these are the current leaders, not final winners.'} ${lines.length} awards.</p>
+      <div class="table-wrap" style="max-height:600px"><table>
+        <thead><tr><th>Award</th><th>Runner</th><th>Shirt</th><th>Ship to</th></tr></thead>
+        <tbody>${lines.map((w) => `<tr><td><span class="place p${w.award_place}">${w.award_place}</span> ${esc(w.category)}</td>
+          <td><b>${esc(w.full_name || w.name)}</b><div class="small muted">${esc(w.email || '')}</div></td><td>${esc(w.shirt_size || '—')}</td>
+          <td class="small" style="white-space:normal;min-width:220px">${esc(addr(w) || 'No address on file')}</td></tr>`).join('')}</tbody></table></div></div>`;
+    $('runners').scrollIntoView({ behavior: 'smooth' });
+  }
+
   $('content').addEventListener('click', async (e) => {
+    const sup = e.target.closest('[data-support]');
+    if (sup) {
+      await api(`/admin/support/${sup.dataset.support}`, { json: { status: sup.dataset.status } });
+      return loadSupport();
+    }
     const reg = e.target.closest('[data-reg]');
     if (reg) {
       let reason = '';
@@ -108,6 +155,8 @@
     const r = e.target.closest('[data-review]');
     const v = e.target.closest('[data-view]');
     const ru = e.target.closest('[data-runners]');
+    const aw = e.target.closest('[data-awards]');
+    if (aw) return showAwards(aw.dataset.awards);
     if (r) {
       await api(`/admin/runs/${r.dataset.review}/review`, { json: { action: r.dataset.action, note: r.dataset.action === 'approve' ? 'Approved after review' : 'Rejected after review' } });
       toast(`Run ${r.dataset.action}d.`);

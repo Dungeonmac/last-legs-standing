@@ -67,10 +67,10 @@
       </div>
 
       <div class="grid g4" style="margin-top:4rem">
-        <div class="card"><div class="step-num">01</div><h3>Sign up</h3><p class="ink2 small">Create your account, choose your challenge, and pay the $30 entry. You’ll get a bib number, plus a shirt and medal shipped to you.</p></div>
+        <div class="card"><div class="step-num">01</div><h3>Sign up</h3><p class="ink2 small">Create your account, choose your challenge, and pay the $30 entry. You’ll get your bib number and your place on the start line.</p></div>
         <div class="card"><div class="step-num">02</div><h3>Run anywhere</h3><p class="ink2 small">Every day, run that day’s distance with any GPS watch or phone app, or with our built-in tracker. Run it all at once or split it into several runs.</p></div>
-        <div class="card"><div class="step-num">03</div><h3>Upload by midnight UTC</h3><p class="ink2 small">Sync from Strava or upload a file from Garmin, Coros, Apple Watch, Suunto or Polar before 23:59:59 UTC. Every run is checked automatically.</p></div>
-        <div class="card"><div class="step-num">04</div><h3>Outlast everyone</h3><p class="ink2 small">Come back tomorrow for one more kilometer. Keep going until you’re the last runner standing. The top three win prizes.</p></div>
+        <div class="card"><div class="step-num">03</div><h3>Upload by midnight UTC</h3><p class="ink2 small">Sync from Strava or upload a file from Garmin, Coros, Apple Watch, Suunto or Polar before 23:59:59 UTC. Every run is checked automatically. <a href="/how-to-submit.html">See how, step by step.</a></p></div>
+        <div class="card"><div class="step-num">04</div><h3>Outlast everyone</h3><p class="ink2 small">Come back tomorrow for one more kilometer. There’s no finish day. Keep going until you’re the last runner standing. The top three win prizes.</p></div>
       </div>
     </div>
   </section>
@@ -81,11 +81,12 @@
       <div class="row between" style="align-items:flex-end;margin-bottom:2rem">
         <div>
           <div class="eyebrow">The climb</div>
-          <h2 class="display">It adds up fast.</h2>
-          <p class="lead">Each bar is one day. Runners usually start to drop between Day 10 and Day 20. Very few get past Day 40.</p>
+          <h2 class="display">No finish line.<br><span class="accent">No ceiling.</span></h2>
+          <p class="lead">Each bar is one day, and the bars never stop. There is no predetermined last day. The race ends only when one runner is left standing. That could be Day 30, Day 60 or Day 100. People do crazy things when they refuse to quit. <b style="color:var(--ink)">Where will you draw the line?</b></p>
         </div>
       </div>
-      <div class="ladder" id="ladder" aria-hidden="true"></div>
+      <div class="ladder-wrap"><div class="ladder endless" id="ladder" aria-hidden="true"></div>
+        <div class="ladder-more">And on, and on →<span>No predetermined finish day</span></div></div>
       <div class="table-wrap" style="margin-top:2.5rem">
         <table>
           <thead><tr><th>Day</th><th class="r">Run that day</th><th class="r">Total so far</th><th>What it feels like</th></tr></thead>
@@ -119,23 +120,29 @@
   <section class="section alt" id="rules">
     <div class="wrap">
       <div class="eyebrow">The rules</div>
-      <h2 class="display">Twelve rules. No exceptions.</h2>
-      <p class="lead" style="margin-bottom:2.5rem">Every runner agrees to these rules and the <a href="/waiver.html">waiver</a> when they sign up.</p>
+      <h2 class="display">Five golden rules.<br><span class="accent">No exceptions.</span></h2>
+      <p class="lead" style="margin-bottom:2.5rem">Know these five and you know the race. The full rules below cover the details. Every runner agrees to all of them and the <a href="/waiver.html">waiver</a> when they sign up.</p>
       <div id="rules-list"></div>
     </div>
   </section>
 
-  <!-- ============ PRIZES ============ -->
+  <!-- ============ AWARDS ============ -->
   <section class="section" id="prizes">
     <div class="wrap">
-      <div class="eyebrow">Prizes</div>
-      <h2 class="display">Three podium spots.</h2>
-      <p class="lead" style="margin-bottom:2rem">The prizes for 1st, 2nd and 3rd are announced on the event page before the start. Every finisher’s result is recorded in the event history.</p>
+      <div class="eyebrow">Awards</div>
+      <h2 class="display">Win it all.<br><span class="accent">Or win your division.</span></h2>
+      <p class="lead" style="margin-bottom:2rem">Just like a real road race, there are winners overall, for men and women, and in every age group. You don’t have to outlast the whole world to bring home a medal. You just have to outlast your division.</p>
       <div class="podium">
-        <div class="step second"><div class="medal">2nd</div><p class="muted small">Prize to be announced</p></div>
-        <div class="step first"><div class="medal">1st</div><p class="muted small">Prize to be announced<br>The last runner standing</p></div>
-        <div class="step third"><div class="medal">3rd</div><p class="muted small">Prize to be announced</p></div>
+        <div class="step second"><div class="medal">2nd</div><p class="muted small">Overall</p></div>
+        <div class="step first"><div class="medal">1st</div><p class="muted small">Overall champion<br>The last runner standing</p></div>
+        <div class="step third"><div class="medal">3rd</div><p class="muted small">Overall</p></div>
       </div>
+      <div class="grid g3" style="margin-top:1.25rem">
+        <div class="card"><div class="step-num" style="font-size:2.2rem">Top 3</div><h3>Men &amp; women</h3><p class="ink2 small">The top 3 men and the top 3 women.</p></div>
+        <div class="card"><div class="step-num" style="font-size:2.2rem">Top 3</div><h3>Every age group</h3><p class="ink2 small">The top 3 men and the top 3 women in each age group: <span id="ag-list"></span>. Your age group is your age on Day 1.</p></div>
+        <div class="card"><div class="step-num" style="font-size:2.2rem">🏅</div><h3>Shirt + medal</h3><p class="ink2 small">Every award winner gets a finisher shirt and medal shipped to them. Shirts and medals are earned, not handed out. Any prizes are announced on the event page.</p></div>
+      </div>
+      <p class="small muted" style="margin-top:1rem">One award per runner: if you place in the top 3 overall, your men’s/women’s and age-group spot goes to the next runner in line, as at most road races. Every category is ranked the same way as the overall race: days survived, then total distance, then total moving time.</p>
     </div>
   </section>
 
@@ -149,10 +156,14 @@
       <details><summary>What devices and apps work?</summary><p>Any device that records GPS: Garmin, Coros, Suunto, Polar, Wahoo, Apple Watch, Android phones, iPhones. Connect Strava to import runs with one tap, or upload a .gpx, .tcx or .fit file from any app. You can also record runs with our built-in browser tracker.</p></details>
       <details><summary>Can I run on a treadmill?</summary><p>No. Treadmill runs have no GPS track, so they can’t be verified. Every run must be recorded outdoors with GPS.</p></details>
       <details><summary>My GPS says 9.98 km and the day needed 10 km. Am I out?</summary><p>Yes. The recorded distance has to reach the full distance due. GPS can read slightly short, so we strongly recommend running 2–3% extra every day.</p></details>
+      <details><summary>Is there a last day?</summary><p>No. There is no predetermined finish day. The distance keeps climbing by 1 km every day until only one runner (or none) is left. Nobody knows how far it will go, and that’s the point.</p></details>
+      <details><summary>Can runners under 18 take part?</summary><p>Yes, with a parent’s or legal guardian’s consent. If you’re under 18 on the start date, your parent or guardian gives their details at sign-up and signs the waiver with you. They’re responsible for supervising your running and stopping you if it becomes unsafe.</p></details>
+      <details><summary>I need help with an upload, payment or shipping. Who do I contact?</summary><p>Use the <a href="/help.html">Help desk</a> page. Contact us early. If you reach out after the cutoff, or too close to it for us to help, a missed run is your own responsibility. The deadline never moves.</p></details>
       <details><summary>How do you catch cheaters?</summary><p>Every upload is checked automatically: the run’s date must fall inside the current race day, speeds are scanned for vehicle or bike movement, GPS tracks are checked for jumps and computer-generated patterns, and every file is fingerprinted so the same run can’t be uploaded twice or by two people. Suspicious runs go to race officials for review.</p></details>
       <details><summary>What happens if two or three runners are eliminated on the same last day?</summary><p>The runner with the longest total distance across the whole race places highest. If that’s exactly equal, the fastest total moving time wins. 2nd and 3rd place are decided the same way.</p></details>
-      <details><summary>What do I get for my $30 entry?</summary><p>Your place in the challenge, a bib number, live tracking of your progress, and a shirt and medal shipped to you. Entry fees are non-refundable.</p></details>
-      <details><summary>Is my personal information safe?</summary><p>Yes. We never sell, rent or trade your information. We use your address only to ship shirts, medals and prizes. Public results show only your first name, last initial and country. Read the <a href="/privacy.html">privacy policy</a>.</p></details>
+      <details><summary>What do I get for my $30 entry?</summary><p>Your place in the challenge, a bib number, verification of every run, live tracking of your progress, and your result and division place in the event history. Shirts and medals go to award winners only: the top 3 overall, the top 3 men and women, and the top 3 men and women in each age group. Entry fees are non-refundable.</p></details>
+      <details><summary>How do age groups work?</summary><p>Your age group is your age on Day 1 of the event: 14 &amp; under, 15–19, 20–29, 30–39, 40–49, 50–59, 60–69 or 70+. Men and women are ranked separately in each age group, using the same order as the overall race. You can win one award, your highest. If you’re in the top 3 overall, your men’s/women’s and age-group places pass to the next runners.</p></details>
+      <details><summary>Is my personal information safe?</summary><p>Yes. We never sell, rent or trade your information. We use your address only to ship shirts, medals and prizes if you win an award. Public results show only your first name, last initial and country. Read the <a href="/privacy.html">privacy policy</a>.</p></details>
     </div>
   </section>
 
@@ -169,23 +180,26 @@
 <script type="module">
   import { mountChrome, api, countdown, fmtDate, fmtLocal, tz, both, money, esc } from '/js/common.js';
   import { rulesHTML } from '/js/legal.js';
+  import { AGE_GROUP_LIST } from '/js/divisions.js';
+  document.getElementById('ag-list').textContent = AGE_GROUP_LIST;
 
   mountChrome();
   document.getElementById('rules-list').innerHTML = rulesHTML();
 
   // The climb
   const ladder = document.getElementById('ladder');
-  const N = 50;
+  // The bars run off the edge on purpose: there is no last day.
+  const N = innerWidth < 600 ? 40 : 64;
   ladder.innerHTML = Array.from({ length: N }, (_, i) => {
     const d = i + 1;
-    const mark = [1, 10, 20, 30, 40, 50].includes(d);
-    return `<div class="bar ${mark ? 'mark' : ''} ${d === N ? 'last' : ''}" style="height:${(d / N) * 100}%">${mark ? `<small>D${d}</small>` : ''}</div>`;
+    const mark = d === 1 || d % 10 === 0;
+    return `<div class="bar ${mark ? 'mark' : ''}" style="height:${(d / N) * 78}%">${mark ? `<small>D${d}</small>` : ''}</div>`;
   }).join('');
-  const feel = { 1: 'A warm-up.', 5: 'Still easy. Everyone is in.', 10: 'A solid 10K, every single day.', 15: 'Legs start to talk back.', 21: 'A half marathon, daily.', 30: 'Life is now mostly running.', 42: 'A marathon. Then another tomorrow.', 50: 'Legend territory.' };
+  const feel = { 1: 'A warm-up.', 5: 'Still easy. Everyone is in.', 10: 'A solid 10K, every single day.', 15: 'Legs start to talk back.', 21: 'A half marathon, daily.', 30: 'Life is now mostly running.', 42: 'A marathon. Then another tomorrow.', 50: 'Legend territory.', 75: 'Nobody told your legs there was a limit.', 100: '100 km in a day, after 99 days in a row. Possible? Prove it.' };
   document.getElementById('climb-table').innerHTML = Object.entries(feel).map(([d, f]) => {
     const cum = (d * (+d + 1)) / 2;
     return `<tr><td><b>Day ${d}</b></td><td class="r num">${both(d * 1000, 0)}</td><td class="r num">${both(cum * 1000, 0)}</td><td class="ink2">${f}</td></tr>`;
-  }).join('');
+  }).join('') + '<tr><td><b class="gold">Day ?</b></td><td class="r num">?</td><td class="r num">?</td><td class="ink2"><b style="color:var(--ink)">There is no last day.</b> The last runner standing decides when it ends.</td></tr>';
 
   // Deadline in local time
   const now = new Date();

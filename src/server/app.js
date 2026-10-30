@@ -2,13 +2,15 @@ import { HttpError, json, readJson, required, clean, dayNumber, dayWindow, sha25
 import { hashPassword, verifyPassword, validatePassword, createSession, clearSessionCookie, currentUser, destroySession, requireUser, requireAdmin } from './auth.js';
 import { parseActivityFile } from './parsers.js';
 import { computeMetrics, fingerprint, assessRun } from './analyze.js';
-import { syncEvent, liveStats, pastEventStats, publicEvent, recheckRegistration, standings } from './race.js';
+import { syncEvent, liveStats, pastEventStats, publicEvent, recheckRegistration, standings, rankEvent } from './race.js';
 import {
   stripeEnabled, createPaymentIntent, verifyPaymentIntent,
   stravaEnabled, stravaAuthorizeUrl, stravaExchange, stravaTodaysActivities, stravaActivityPoints,
+  emailEnabled, sendEmail,
 } from './integrations.js';
+import { ageGroup, divisionLabel } from '../../public/js/divisions.js';
 
-export const WAIVER_VERSION = '2026-10-29';
+export const WAIVER_VERSION = '2026-10-30.2';
 const MAX_UPLOAD_BYTES = 25 * 1024 * 1024;
 
 const routes = [];
@@ -88,15 +90,27 @@ route('GET', '/config', ({ env }) => json({
   stripePublishableKey: stripeEnabled(env) ? env.STRIPE_PUBLISHABLE_KEY : null,
   strava: stravaEnabled(env),
   waiverVersion: WAIVER_VERSION,
+  supportTopics: SUPPORT_TOPICS,
 }));
 
 route('GET', '/me', async ({ request, env }) => {
   const user = await currentUser(request, env);
   if (!user) return json({ user: null });
   const { results } = await env.DB.prepare(
-    `SELECT r.bib, r.status, r.eliminated_day, r.final_place, e.slug, e.name, e.status AS event_status, e.start_date
+    `SELECT r.id, r.bib, r.status, r.eliminated_day, r.final_place, r.shirt_size, r.amount_cents, r.payment_status, r.created_at,
+            e.id AS event_id, e.slug, e.name, e.status AS event_status, e.start_date
        FROM registrations r JOIN events e ON e.id = r.event_id WHERE r.user_id = ? ORDER BY e.start_date DESC`,
   ).bind(user.id).all();
+  const p = await env.DB.prepare('SELECT dob, gender FROM users WHERE id = ?').bind(user.id).first();
+  for (const r of results) {
+    r.division = divisionLabel(p.gender, ageGroup(p.dob ? ageOn(p.dob, r.start_date) : null));
+    // Award (if any) from a finished event
+    if (r.event_status === 'completed') {
+      const { rows } = await rankEvent(env, r.event_id);
+      r.award = rows.find((x) => x.id === r.id)?.award || null;
+    }
+    delete r.id; delete r.event_id;
+  }
   return json({
     user: { id: user.id, email: user.email, first_name: user.first_name, last_name: user.last_name, isAdmin: user.isAdmin },
     registrations: results,
@@ -130,12 +144,26 @@ route('POST', '/signup', async ({ request, env }) => {
   const b = await readJson(request);
   const sessionUser = await currentUser(request, env);
 
-  required(b, ['event_slug', 'first_time', 'first_name', 'last_name', 'dob', 'country', 'phone', 'emergency_name', 'emergency_phone', 'shirt_size']);
+  required(b, ['event_slug', 'first_time', 'first_name', 'last_name', 'dob', 'gender', 'country', 'phone', 'emergency_name', 'emergency_phone', 'shirt_size']);
   if (!['first', 'returning'].includes(b.first_time)) throw new HttpError(400, 'Tell us whether this is your first time.');
+  if (!['Male', 'Female'].includes(b.gender)) throw new HttpError(400, 'Choose Male or Female.');
   const ev = await eventBySlug(env, clean(b.event_slug));
   if (!ev.registration_open || ev.status !== 'upcoming') throw new HttpError(400, 'Registration for this event is closed.');
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(b.dob) || ageOn(b.dob, ev.start_date) < 18) {
-    throw new HttpError(400, 'You must be at least 18 years old on the start date.');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(b.dob) || Date.parse(`${b.dob}T00:00:00Z`) >= Date.now()) throw new HttpError(400, 'Enter a valid date of birth.');
+
+  // Runners under 18 on the start date need a parent or guardian, who signs the waiver too.
+  let guardian = null;
+  if (ageOn(b.dob, ev.start_date) < 18) {
+    const g = b.guardian || {};
+    if (!g.agreed) throw new HttpError(400, 'A parent or guardian must give consent for runners under 18.');
+    required(g, ['name', 'relationship', 'email', 'phone', 'signed_name']);
+    if (!isEmail(g.email)) throw new HttpError(400, "Enter a valid email for the parent or guardian.");
+    if (normName(g.name) === normName(`${b.first_name} ${b.last_name}`)) throw new HttpError(400, 'The parent or guardian must be a different person from the runner.');
+    if (normName(g.signed_name) !== normName(g.name)) throw new HttpError(400, "The parent or guardian's signature must match their name exactly.");
+    guardian = {
+      name: clean(g.name, 120), relationship: clean(g.relationship, 40), email: clean(g.email, 200).toLowerCase(), phone: clean(g.phone, 40),
+      signed_name: clean(g.signed_name, 120), signed_at: new Date().toISOString(),
+    };
   }
 
   const shipping = validAddress(b.shipping, 'Shipping');
@@ -205,10 +233,13 @@ route('POST', '/signup', async ({ request, env }) => {
     upsertAddr('billing', billing),
     env.DB.prepare(
       `INSERT INTO registrations (event_id, user_id, bib, first_time, shirt_size, amount_cents, payment_status, payment_ref,
-         waiver_version, waiver_signed_name, waiver_signed_at, waiver_ip)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         waiver_version, waiver_signed_name, waiver_signed_at, waiver_ip,
+         guardian_name, guardian_relationship, guardian_email, guardian_phone, guardian_signed_name, guardian_signed_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     ).bind(ev.id, userId, nextBib, b.first_time === 'first' ? 1 : 0, clean(b.shirt_size, 10), ev.fee_cents, paymentStatus, paymentRef,
-      WAIVER_VERSION, clean(w.signed_name, 120), new Date().toISOString(), request.headers.get('cf-connecting-ip') || 'local'),
+      WAIVER_VERSION, clean(w.signed_name, 120), new Date().toISOString(), request.headers.get('cf-connecting-ip') || 'local',
+      guardian?.name ?? null, guardian?.relationship ?? null, guardian?.email ?? null, guardian?.phone ?? null,
+      guardian?.signed_name ?? null, guardian?.signed_at ?? null),
   ]);
 
   return json({ ok: true, bib: nextBib, event: publicEvent(ev), demoPayment: paymentStatus === 'demo_paid' }, 201, cookie ? { 'set-cookie': cookie } : {});
@@ -272,8 +303,10 @@ route('GET', '/dashboard', async ({ request, env }) => {
        FROM runs r JOIN events e ON e.id = r.event_id WHERE r.user_id = ? ORDER BY r.start_time DESC LIMIT 60`,
   ).bind(user.id).all();
   const strava = await env.DB.prepare('SELECT athlete_id FROM strava_tokens WHERE user_id = ?').bind(user.id).first();
+  const shipping = await env.DB.prepare(`SELECT city, region, country FROM addresses WHERE user_id = ? AND kind = 'shipping'`).bind(user.id).first();
   return json({
     user: { first_name: user.first_name, last_name: user.last_name, email: user.email, isAdmin: user.isAdmin },
+    shipping,
     race,
     runs: runs.map((r) => ({ ...r, flags: JSON.parse(r.flags || '[]') })),
     strava: { enabled: stravaEnabled(env), connected: !!strava },
@@ -400,6 +433,65 @@ route('POST', '/strava/import', async ({ request, env }) => {
   return ingestRun(env, user, parsed, 'strava', { name: `strava-${id}.json`, buffer: new TextEncoder().encode(`strava:${parsed.stravaId}`) });
 });
 
+// ---------------------------------------------------------------- help desk
+const SUPPORT_TOPICS = ['Uploading a run', 'Built-in tracker', 'Account or login', 'Payment or refund', 'Awards, shirts & medals', 'Rules question', 'Complaint', 'Other'];
+
+route('POST', '/support', async ({ request, env }) => {
+  const b = await readJson(request);
+  if (b.website) return json({ ok: true }); // honeypot field: only bots fill it in
+  required(b, ['name', 'email', 'topic', 'message']);
+  if (!isEmail(b.email)) throw new HttpError(400, 'Enter a valid email address so we can reply.');
+  if (!SUPPORT_TOPICS.includes(b.topic)) throw new HttpError(400, 'Choose a topic.');
+  if (String(b.message).trim().length < 10) throw new HttpError(400, 'Tell us a little more about the problem.');
+  const ip = request.headers.get('cf-connecting-ip') || 'local';
+  const { n } = await env.DB.prepare(
+    `SELECT COUNT(*) AS n FROM support_messages WHERE ip = ? AND created_at > strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-10 minutes')`,
+  ).bind(ip).first();
+  if (n >= 5) throw new HttpError(429, 'You’ve sent several messages in the last few minutes. Please wait a little, or email us directly.');
+
+  const user = await currentUser(request, env);
+  const msg = {
+    name: clean(b.name, 120), email: clean(b.email, 200), bib: clean(b.bib, 20), topic: b.topic, message: clean(b.message, 5000),
+  };
+  const res = await env.DB.prepare(
+    'INSERT INTO support_messages (user_id, name, email, bib, topic, message, ip) VALUES (?, ?, ?, ?, ?, ?, ?)',
+  ).bind(user?.id ?? null, msg.name, msg.email, msg.bib, msg.topic, msg.message, ip).run();
+  const id = res.meta.last_row_id;
+
+  let emailed = false;
+  if (emailEnabled(env)) {
+    try {
+      await sendEmail(env, {
+        to: env.SUPPORT_EMAIL, replyTo: msg.email, subject: `[Help #${id}] ${msg.topic}: ${msg.name}`,
+        text: [
+          `Topic: ${msg.topic}`, `From: ${msg.name} <${msg.email}>`, `Bib: ${msg.bib || '(none given)'}`,
+          `Logged in as: ${user ? `${user.first_name} ${user.last_name} <${user.email}>` : '(not logged in)'}`,
+          `Sent: ${new Date().toUTCString()}`, '', msg.message, '', 'Reply to this email to answer the runner directly.',
+        ].join('\n'),
+      });
+      emailed = true;
+      await env.DB.prepare('UPDATE support_messages SET emailed = 1 WHERE id = ?').bind(id).run();
+    } catch (e) {
+      console.error('Help desk email failed', e); // the message is still saved and visible in Admin
+    }
+  }
+  return json({ ok: true, id, emailed }, 201);
+});
+
+route('GET', '/admin/support', async ({ request, env }) => {
+  await requireAdmin(request, env);
+  const { results } = await env.DB.prepare('SELECT * FROM support_messages ORDER BY status = \'open\' DESC, created_at DESC LIMIT 200').all();
+  return json({ messages: results, emailEnabled: emailEnabled(env), supportEmail: env.SUPPORT_EMAIL || null });
+});
+
+route('POST', '/admin/support/:id', async ({ request, env, params }) => {
+  await requireAdmin(request, env);
+  const { status } = await readJson(request);
+  if (!['open', 'closed'].includes(status)) throw new HttpError(400, 'Status must be open or closed.');
+  await env.DB.prepare('UPDATE support_messages SET status = ? WHERE id = ?').bind(status, params.id).run();
+  return json({ ok: true });
+});
+
 // ---------------------------------------------------------------- admin
 route('GET', '/admin/overview', async ({ request, env }) => {
   await requireAdmin(request, env);
@@ -447,6 +539,31 @@ route('GET', '/admin/events/:slug/registrations', async ({ request, env, params 
   ).bind(ev.id).all();
   const byId = Object.fromEntries(extra.map((x) => [x.id, x]));
   return json({ event: publicEvent(ev), registrations: rows.map((r) => ({ ...r, ...byId[r.id] })) });
+});
+
+// Award winners with what's needed to ship their shirt and medal. Only award winners get them.
+route('GET', '/admin/events/:slug/awards', async ({ request, env, params }) => {
+  await requireAdmin(request, env);
+  const ev = await eventBySlug(env, params.slug);
+  const { awards } = await rankEvent(env, ev.id);
+  const ids = [...new Set(awards.flatMap((c) => c.winners.map((w) => w.id)))];
+  const ship = {};
+  for (let i = 0; i < ids.length; i += 50) {
+    const chunk = ids.slice(i, i + 50);
+    const { results } = await env.DB.prepare(
+      `SELECT r.id, u.first_name || ' ' || u.last_name AS full_name, u.email, u.phone, r.shirt_size,
+              a.line1, a.line2, a.city, a.region, a.postal, a.country AS ship_country
+         FROM registrations r JOIN users u ON u.id = r.user_id
+         LEFT JOIN addresses a ON a.user_id = u.id AND a.kind = 'shipping'
+        WHERE r.id IN (${chunk.map(() => '?').join(',')})`,
+    ).bind(...chunk).all();
+    for (const x of results) ship[x.id] = x;
+  }
+  return json({
+    event: publicEvent(ev),
+    final: ev.status === 'completed',
+    awards: awards.map((c) => ({ ...c, winners: c.winners.map((w) => ({ ...w, ...ship[w.id] })) })),
+  });
 });
 
 route('POST', '/admin/registrations/:id/status', async ({ request, env, params }) => {

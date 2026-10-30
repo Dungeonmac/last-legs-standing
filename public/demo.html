@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Demo · Last Legs Standing</title>
+  <meta name="robots" content="noindex">
+  <meta name="theme-color" content="#0c0d0f">
+  <link rel="icon" href="/img/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body data-page="demo">
+<main id="main">
+  <!-- Local preview only. The demo accounts exist only in the seeded local database (npm run db:reset). -->
+  <section class="page-head"><div class="wrap">
+    <div class="eyebrow">Preview</div>
+    <h1 class="display" style="font-size:clamp(2.4rem,6vw,4rem)">See it as a runner</h1>
+    <p class="lead">Log in as a demo runner with one tap and look around. Nothing here is real, and no card is charged.</p>
+  </div></section>
+  <section class="section" style="padding-top:2.5rem"><div class="wrap stack">
+    <div id="err" class="alert error hidden" role="alert"></div>
+    <div class="path-pick">
+      <button class="path-card" style="text-align:left;font:inherit;cursor:pointer" data-email="paid@lastlegsstanding.test" data-pw="PaidDemo2026!" data-next="/account.html">
+        <span class="big" aria-hidden="true">🎟</span><span class="tag">Just paid</span><b>Signed up &amp; paid</b>
+        <span class="small ink2">Jordan has paid for the 2027 race, which hasn’t started yet. See the bib, the countdown, the order details and the get-ready checklist.</span></button>
+      <button class="path-card" style="text-align:left;font:inherit;cursor:pointer" data-email="runner@lastlegsstanding.test" data-pw="RunDemo2026!" data-next="/account.html">
+        <span class="big" aria-hidden="true">🔥</span><span class="tag">Mid-race</span><b>In the race, Day 18</b>
+        <span class="small ink2">Test Runner is still standing on Day 18 of a demo race. See today’s distance, the deadline countdown, uploads and the tracker.</span></button>
+      <button class="path-card" style="text-align:left;font:inherit;cursor:pointer" id="hype">
+        <span class="big" aria-hidden="true">⚡</span><b>The welcome animation</b>
+        <span class="small ink2">Play the hype sequence that every runner sees right after they sign up.</span></button>
+    </div>
+    <div class="card">
+      <h3>Other things to try</h3>
+      <ul class="ink2 small" style="padding-left:1.1rem;margin:0;display:grid;gap:.4rem">
+        <li><b>Sign up yourself:</b> go to <a href="/signup.html">Sign up</a> and use the test card <span class="num">4242 4242 4242 4242</span> with any future expiry date. Enter a birth date under 18 to see the parent or guardian consent steps.</li>
+        <li><b>Upload a run:</b> as the mid-race runner, run <code>npm run sample-gpx</code>, then upload <code>samples/today-valid-run.gpx</code> on the Upload page.</li>
+        <li><b>On your phone:</b> open this page on your phone (same Wi-Fi) to see the mobile layout and the bottom tab bar.</li>
+        <li><b>Admin:</b> log in as <code>admin@lastlegsstanding.test</code> / <code>AdminDemo2026!</code> to see the help desk inbox and the review queue.</li>
+      </ul>
+    </div>
+  </div></section>
+</main>
+<script type="module">
+  import { mountChrome, api } from '/js/common.js';
+  import { playHype } from '/js/hype.js';
+  await mountChrome();
+  const err = document.getElementById('err');
+  // The demo accounts only exist in the local database (npm run db:reset), never on the live site.
+  const local = ['localhost', '127.0.0.1'].includes(location.hostname) || /^(192.168|10)./.test(location.hostname);
+  if (!local) {
+    document.querySelectorAll('[data-email]').forEach((b) => b.remove());
+    err.className = 'alert warn';
+    err.textContent = 'The demo runner accounts are only available on the local preview. On the live site, sign up for real or watch the welcome animation below.';
+  }
+  document.querySelectorAll('[data-email]').forEach((b) => b.addEventListener('click', async () => {
+    err.classList.add('hidden');
+    try {
+      await api('/auth/logout', { method: 'POST' }).catch(() => {});
+      await api('/auth/login', { json: { email: b.dataset.email, password: b.dataset.pw } });
+      location.href = b.dataset.next;
+    } catch (x) {
+      err.textContent = `${x.message} The demo accounts exist only after you run "npm run db:reset" locally.`;
+      err.classList.remove('hidden');
+    }
+  }));
+  document.getElementById('hype').addEventListener('click', () =>
+    playHype({ first: 'Jordan', last: 'Rivera', bib: 1, event: 'Last Legs Standing 2027', startMs: Date.parse('2027-03-01T00:00:00Z') }));
+</script>
+</body>
+</html>

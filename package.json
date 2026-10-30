@@ -6,6 +6,7 @@
   "type": "module",
   "scripts": {
     "dev": "wrangler pages dev public --port 8788",
+    "dev:phone": "wrangler pages dev public --port 8788 --ip 0.0.0.0",
     "db:schema": "wrangler d1 execute lls-db --local --file schema.sql",
     "db:seed": "node scripts/seed.mjs && wrangler d1 execute lls-db --local --file scripts/seed.sql",
     "db:reset": "npm run db:schema && npm run db:seed",

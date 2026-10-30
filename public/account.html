@@ -20,7 +20,8 @@
   <section class="section" style="padding-top:2.5rem"><div class="wrap stack" id="content"><span class="spinner"></span></div></section>
 </main>
 <script type="module">
-  import { mountChrome, requireLogin, api, fmtLocal, fmtUTC, fmtDate, esc, dist, both, pace, duration, countdown } from '/js/common.js';
+  import { mountChrome, requireLogin, api, fmtLocal, fmtUTC, fmtDate, esc, dist, both, pace, duration, countdown, money } from '/js/common.js';
+  import { playHype } from '/js/hype.js';
   await mountChrome();
   const me = await requireLogin();
   const d = await api('/dashboard');
@@ -28,11 +29,49 @@
   $('hello').textContent = `Hi, ${d.user.first_name}`;
   $('logout').addEventListener('click', async () => { await api('/auth/logout', { method: 'POST' }); location.href = '/'; });
 
+  // A paid runner whose race hasn't started yet: bib, countdown, order and a get-ready checklist.
+  function registeredCard(u) {
+    const startMs = Date.parse(`${u.start_date}T00:00:00Z`);
+    const paid = u.payment_status === 'paid' ? `Paid ${money(u.amount_cents)}` : u.payment_status === 'demo_paid' ? `Paid ${money(u.amount_cents)} <span class="badge demo">test</span>` : esc(u.payment_status);
+    const ship = d.shipping ? esc([d.shipping.city, d.shipping.region, d.shipping.country].filter(Boolean).join(', ')) : '—';
+    return `
+      <div class="grid g2" style="align-items:stretch">
+        <div class="tile hero-tile" style="display:grid;gap:1.2rem;align-content:start">
+          <div class="row between"><span class="badge active">✓ Registered &amp; paid</span><span class="muted small">${esc(u.name)}</span></div>
+          <div class="bib"><div class="ev">${esc(u.name)}</div><div class="no">${u.bib}</div><div class="nm">${esc(d.user.first_name)} ${esc(d.user.last_name[0] || '')}.</div>${u.division ? `<div class="small" style="color:#555;font-weight:700">${esc(u.division)}</div>` : ''}</div>
+          <div class="center"><button class="btn ghost sm" data-hype="${u.bib}" data-event="${esc(u.name)}" data-start="${startMs}">▶ Replay my welcome</button></div>
+        </div>
+        <div class="tile" style="display:grid;gap:1rem;align-content:start">
+          <div><div class="label">Countdown to Day 1</div><div class="cd-up" data-t="${startMs}" style="margin-top:.6rem"></div>
+            <div class="sub">Day 1 (1 km) opens ${fmtUTC(startMs)} · ${fmtLocal(startMs)} your time</div></div>
+          <dl class="kv" style="margin:0">
+            <dt>Entry</dt><dd>${paid}</dd>
+            <dt>Bib</dt><dd>#${u.bib}</dd>
+            <dt>Division</dt><dd>${esc(u.division || '—')}</dd>
+            <dt>Shirt size</dt><dd>${esc(u.shirt_size || '—')}</dd>
+            <dt>Awards ship to</dt><dd>${ship}</dd>
+            <dt>Signed up</dt><dd>${u.created_at ? fmtDate(Date.parse(u.created_at)) : '—'}</dd>
+          </dl>
+        </div>
+      </div>
+      <div class="card">
+        <h3>Get ready for Day 1</h3>
+        <ul class="checklist">
+          <li><span class="n">1</span><div><b>Learn how to submit a run.</b> <span class="ink2 small">Three easy ways, step by step.</span> <a href="/how-to-submit.html">Open the guide →</a></div></li>
+          <li><span class="n">2</span><div><b>Test the tracker on a short walk.</b> <span class="ink2 small">Make sure your phone allows location.</span> <a href="/track.html">Open the tracker →</a></div></li>
+          <li><span class="n">3</span><div><b>Put this site on your phone’s home screen.</b> <span class="ink2 small">Then it opens like an app.</span> <a href="/how-to-submit.html#tracker">Show me how →</a></div></li>
+          <li><span class="n">4</span><div><b>Know your deadline.</b> <span class="ink2 small">Every day ends at 23:59:59 UTC, which is <b>${fmtLocal(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), new Date().getUTCDate(), 23, 59, 59), false)}</b> for you.</span></div></li>
+          <li><span class="n">5</span><div><b>Know your division.</b> <span class="ink2 small">You’re racing in <b>${esc(u.division || 'your division')}</b>. The top 3 in every division win a shirt and medal.</span> <a href="/#prizes">How awards work →</a></div></li>
+          <li><span class="n">6</span><div><b>Read the rules one more time.</b> <a href="/#rules">The rules →</a></div></li>
+        </ul>
+      </div>`;
+  }
+
   function raceCard(r) {
     if (!r) {
       const upcoming = me.registrations.filter((x) => x.event_status === 'upcoming');
       return upcoming.length
-        ? `<div class="card raise"><div class="eyebrow">You’re registered</div>${upcoming.map((u) => `<h2 style="margin:.2rem 0">${esc(u.name)}</h2><p class="ink2">Bib #${u.bib} · Day 1 starts ${fmtUTC(Date.parse(u.start_date + 'T00:00:00Z'))}</p><div class="cd-up" data-t="${Date.parse(u.start_date + 'T00:00:00Z')}"></div>`).join('<hr style="border-color:var(--hair)">')}</div>`
+        ? upcoming.map(registeredCard).join('')
         : `<div class="empty">You’re not in a live race right now. <a href="/events.html">Find an event</a> or <a href="/signup.html">sign up</a>.</div>`;
     }
     if (r.status !== 'active') {
@@ -44,7 +83,7 @@
     return `
       <div class="grid g2">
         <div class="tile hero-tile">
-          <div class="row between"><span class="badge active">Still standing</span><span class="muted small">Bib #${r.bib}${r.event.is_demo ? ' · <span class="gold">demo race</span>' : ''}</span></div>
+          <div class="row between"><span class="badge active">Still standing</span><span class="muted small">Bib #${r.bib}${(() => { const x = me.registrations.find((g) => g.slug === r.event.slug); return x?.division ? ` · ${esc(x.division)}` : ""; })()}${r.event.is_demo ? ' · <span class="gold">demo race</span>' : ''}</span></div>
           <div class="value" style="font-size:clamp(3.4rem,8vw,5rem);margin-top:.6rem">Day ${r.day}</div>
           <div class="sub" style="font-size:1.1rem">Due today: <b class="accent">${both(r.due_m, r.due_m % 1000 ? 2 : 0)}</b></div>
           <div style="margin-top:1.2rem">
@@ -58,6 +97,7 @@
           <div id="cd" style="margin:.7rem 0"></div>
           <div class="sub">Deadline: <b>${fmtUTC(r.deadline, false)}</b> · <b>${fmtLocal(r.deadline)}</b> your time</div>
           <div class="row" style="margin-top:1.2rem"><a class="btn" href="/upload.html">Upload a run</a><a class="btn ghost" href="/track.html">Record with tracker</a></div>
+          <p class="small muted" style="margin:.8rem 0 0">Not sure how? <a href="/how-to-submit.html">Step-by-step guide</a> · <a href="/help.html">Get help</a></p>
         </div>
       </div>`;
   }
@@ -82,13 +122,18 @@
       <div class="card"><h3>My runs</h3>${runsTable(d.runs)}</div>
       <div class="card"><h3>My registrations</h3>${me.registrations.length ? `<div class="table-wrap"><table><thead><tr><th>Event</th><th>Bib</th><th>Status</th><th>Result</th></tr></thead><tbody>${
         me.registrations.map((x) => `<tr><td><a href="/event.html?e=${x.slug}">${esc(x.name)}</a></td><td>${x.bib}</td><td><span class="badge ${x.status}">${x.status}</span></td>
-          <td class="ink2">${x.final_place ? `Finished ${x.final_place}` : x.eliminated_day ? `Out on Day ${x.eliminated_day}` : '—'}</td></tr>`).join('')}</tbody></table></div>` : '<p class="muted">None yet.</p>'}</div>`;
+          <td class="ink2">${x.final_place ? `Finished ${x.final_place}` : x.eliminated_day ? `Out on Day ${x.eliminated_day}` : '—'}${x.award ? ` · <b class="gold">🏅 ${x.award.place === 1 ? '1st' : x.award.place === 2 ? '2nd' : '3rd'} ${esc(x.award.category)}</b>` : ''}</td></tr>`).join('')}</tbody></table></div>` : '<p class="muted">None yet.</p>'}</div>
+      <div class="help-cta" style="margin-top:0"><div><h3 style="margin:0">Need help?</h3><p class="ink2 small" style="margin:.3rem 0 0">Problems with an upload, payment or shipping? Contact us early. Help requests don’t extend the deadline.</p></div><a class="btn" href="/help.html">Help desk</a></div>`;
     timers = [];
     if (d.race?.status === 'active') timers.push(countdown($('cd'), d.race.deadline + 999, { serverNow: d.race.server_now, small: true }));
     document.querySelectorAll('.cd-up').forEach((n) => timers.push(countdown(n, +n.dataset.t, { small: true })));
   }
   render();
   window.addEventListener('units', render);
+  $('content').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-hype]');
+    if (b) playHype({ first: d.user.first_name, last: d.user.last_name, bib: b.dataset.hype, event: b.dataset.event, startMs: +b.dataset.start });
+  });
 </script>
 </body>
 </html>

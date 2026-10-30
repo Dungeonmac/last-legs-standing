@@ -22,7 +22,8 @@ async function hash(password) {
   return { hash: b64(bits), salt: b64(salt) };
 }
 
-const FIRST = ['Ava', 'Liam', 'Noah', 'Mia', 'Kai', 'Zoe', 'Mateo', 'Aisha', 'Lucas', 'Sofia', 'Yuki', 'Ethan', 'Amara', 'Leo', 'Freya', 'Omar', 'Ines', 'Jonas', 'Priya', 'Diego', 'Nora', 'Felix', 'Hana', 'Theo', 'Lena', 'Ravi', 'Chloe', 'Malik', 'Elin', 'Tomas', 'Grace', 'Arjun', 'Ingrid', 'Sam', 'Lucia', 'Kenji', 'Maya', 'Oscar', 'Zara', 'Ben', 'Ama', 'Hugo', 'Rosa', 'Finn', 'Leila', 'Ivan', 'Nia', 'Marco', 'Sara', 'Jack'];
+const FIRST_M = ['Liam', 'Noah', 'Kai', 'Mateo', 'Lucas', 'Ethan', 'Leo', 'Omar', 'Jonas', 'Diego', 'Felix', 'Theo', 'Ravi', 'Malik', 'Tomas', 'Arjun', 'Sam', 'Kenji', 'Oscar', 'Ben', 'Hugo', 'Finn', 'Ivan', 'Marco', 'Jack'];
+const FIRST_F = ['Ava', 'Mia', 'Zoe', 'Aisha', 'Sofia', 'Yuki', 'Amara', 'Freya', 'Ines', 'Priya', 'Nora', 'Hana', 'Lena', 'Chloe', 'Elin', 'Grace', 'Ingrid', 'Lucia', 'Maya', 'Zara', 'Ama', 'Rosa', 'Leila', 'Nia', 'Sara'];
 const LAST = ['Okafor', 'Lindqvist', 'Moreau', 'Tanaka', 'Silva', 'Novak', 'Haddad', 'Kowalski', 'Mensah', 'Rossi', 'Fischer', 'Garcia', 'Nguyen', 'Patel', 'Murphy', 'Costa', 'Jensen', 'Abebe', 'Kim', 'Dubois', 'Walsh', 'Ortega', 'Sato', 'Berg', 'Kariuki', 'Reyes', 'Hughes', 'Ivanova', 'Mbeki', 'Larsen', 'Park', 'Santos', 'Weber', 'Ali', 'Clarke', 'Romero', 'Popescu', 'Yilmaz', 'Brennan', 'Achebe'];
 const COUNTRIES = ['United States', 'United States', 'United States', 'Canada', 'United Kingdom', 'Ireland', 'Germany', 'France', 'Spain', 'Italy', 'Netherlands', 'Sweden', 'Norway', 'Poland', 'Kenya', 'South Africa', 'Nigeria', 'Brazil', 'Mexico', 'Argentina', 'Japan', 'South Korea', 'India', 'Australia', 'New Zealand', 'Israel', 'Turkey', 'Portugal'];
 
@@ -33,9 +34,18 @@ const runs = [];
 let userId = 0;
 let regId = 0;
 
+// Ages spread like a real running field: mostly 25-55, a few teens and 70+.
+function randomDob() {
+  const age = Math.round(12 + 62 * (rand() * 0.5 + rand() * 0.5));
+  const m = 1 + Math.floor(rand() * 12);
+  const d = 1 + Math.floor(rand() * 28);
+  return `${2026 - age}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+}
+
 function addUser(u) {
   userId++;
-  users.push({ id: userId, role: 'runner', password_hash: '!', password_salt: '!', dob: '1990-01-01', gender: null, ...u });
+  const gender = u.gender || (rand() < 0.55 ? 'Male' : 'Female');
+  users.push({ id: userId, role: 'runner', password_hash: '!', password_salt: '!', dob: randomDob(), gender, first_name: pick(gender === 'Male' ? FIRST_M : FIRST_F), ...u });
   return userId;
 }
 
@@ -130,8 +140,14 @@ const events = [
 const admin = await hash('AdminDemo2026!');
 const runner = await hash('RunDemo2026!');
 const adminId = addUser({ email: 'admin@lastlegsstanding.test', first_name: 'Race', last_name: 'Director', country: 'United States', role: 'admin', password_hash: admin.hash, password_salt: admin.salt });
-const testId = addUser({ email: 'runner@lastlegsstanding.test', first_name: 'Test', last_name: 'Runner', country: 'United States', password_hash: runner.hash, password_salt: runner.salt, dob: '1992-05-14' });
+const testId = addUser({ email: 'runner@lastlegsstanding.test', first_name: 'Test', last_name: 'Runner', country: 'United States', password_hash: runner.hash, password_salt: runner.salt, dob: '1992-05-14', gender: 'Male' });
+const paid = await hash('PaidDemo2026!');
+const paidId = addUser({ email: 'paid@lastlegsstanding.test', first_name: 'Jordan', last_name: 'Rivera', country: 'United States', password_hash: paid.hash, password_salt: paid.salt, dob: '1995-08-21', gender: 'Female' });
 void adminId;
+const addresses = [
+  { user_id: testId, kind: 'shipping', line1: '1 Demo Street', city: 'Austin', region: 'TX', postal: '78701', country: 'United States' },
+  { user_id: paidId, kind: 'shipping', line1: '22 Sample Avenue', city: 'Brooklyn', region: 'NY', postal: '11201', country: 'United States' },
+];
 
 // ----- past sample event: 160 runners, ends on Day 44 with one survivor
 {
@@ -142,7 +158,7 @@ void adminId;
   caps[1] = 44;  // two runners both fail on Day 44: distance tiebreak decides 2nd vs 3rd
   caps[2] = 44;
   for (let i = 0; i < n; i++) {
-    const uid = addUser({ email: `sample${i}@example.invalid`, first_name: pick(FIRST), last_name: pick(LAST), country: pick(COUNTRIES) });
+    const uid = addUser({ email: `sample${i}@example.invalid`, last_name: pick(LAST), country: pick(COUNTRIES) });
     simulateRunner(ev, uid, i + 1, caps[i], i === 40 ? { dq: 12, flagDay: 12 } : {});
   }
   const mine = regs.filter((r) => r.event_id === 1);
@@ -160,7 +176,7 @@ void adminId;
   const n = 240;
   simulateRunner(ev, testId, 1, 999); // test runner: active, has not run yet today (maybe)
   for (let i = 1; i < n; i++) {
-    const uid = addUser({ email: `demo${i}@example.invalid`, first_name: pick(FIRST), last_name: pick(LAST), country: pick(COUNTRIES) });
+    const uid = addUser({ email: `demo${i}@example.invalid`, last_name: pick(LAST), country: pick(COUNTRIES) });
     const cap = rand() < 0.45 ? 999 : capacityCurve(40);
     const opts = i === 7 ? { dq: 9, flagDay: 9 } : i % 37 === 0 && cap > 18 ? { flagDay: 18 } : {};
     simulateRunner(ev, uid, i + 1, cap, opts);
@@ -170,8 +186,16 @@ void adminId;
   for (const run of runs) if (run.event_id === 2 && run.status === 'flagged' && run.race_day < 18) run.status = 'rejected';
 }
 
+// ----- demo runner who has signed up and paid for the upcoming 2027 race (race not started yet)
+regId++;
+regs.push({
+  id: regId, event_id: 3, user_id: paidId, bib: 1, status: 'active', first_time: 1, shirt_size: 'M', amount_cents: 3000,
+  payment_status: 'demo_paid', payment_ref: 'DEMO-Visa-4242', waiver_version: '2026-10-30.2', waiver_signed_name: 'Jordan Rivera',
+  waiver_signed_at: new Date(now - 2 * DAY).toISOString(), eliminated_day: null, status_reason: null, final_place: null,
+});
+
 // ----- SQL
-sql.push('DELETE FROM runs; DELETE FROM registrations; DELETE FROM addresses; DELETE FROM sessions; DELETE FROM strava_tokens; DELETE FROM events; DELETE FROM users;');
+sql.push('DELETE FROM support_messages; DELETE FROM runs; DELETE FROM registrations; DELETE FROM addresses; DELETE FROM sessions; DELETE FROM strava_tokens; DELETE FROM events; DELETE FROM users;');
 for (const e of events) {
   sql.push(`INSERT INTO events (id, slug, name, tagline, description, start_date, status, fee_cents, prizes, registration_open, last_processed_day, ended_day, is_demo) VALUES (${[
     e.id, e.slug, e.name, e.tagline, e.description, e.start_date, e.status, 3000, JSON.stringify(e.prizes), e.registration_open, e.last_processed_day, e.ended_day, e.is_demo,
@@ -185,10 +209,12 @@ function bulk(table, cols, rows) {
 }
 bulk('users', ['id', 'email', 'password_hash', 'password_salt', 'first_name', 'last_name', 'dob', 'gender', 'country', 'role'], users);
 bulk('registrations', ['id', 'event_id', 'user_id', 'bib', 'status', 'first_time', 'shirt_size', 'amount_cents', 'payment_status', 'payment_ref', 'waiver_version', 'waiver_signed_name', 'waiver_signed_at', 'eliminated_day', 'status_reason', 'final_place'], regs);
+bulk('addresses', ['user_id', 'kind', 'line1', 'city', 'region', 'postal', 'country'], addresses);
 bulk('runs', ['registration_id', 'user_id', 'event_id', 'race_day', 'source', 'start_time', 'end_time', 'distance_m', 'moving_s', 'elapsed_s', 'avg_hr', 'max_speed_kmh', 'elevation_gain_m', 'risk_score', 'flags', 'status'], runs);
 
 writeFileSync(new URL('./seed.sql', import.meta.url), sql.join('\n') + '\n');
 writeFileSync(new URL('./demo-meta.json', import.meta.url), JSON.stringify({ liveStart, generatedAt: new Date(now).toISOString() }, null, 2));
 console.log(`seed.sql written: ${users.length} users, ${regs.length} registrations, ${runs.length} runs. Live demo started ${liveStart}.`);
 console.log('Admin login:  admin@lastlegsstanding.test / AdminDemo2026!');
-console.log('Runner login: runner@lastlegsstanding.test / RunDemo2026!');
+console.log('Runner login: runner@lastlegsstanding.test / RunDemo2026!  (mid-race, Day 18)');
+console.log('Paid login:   paid@lastlegsstanding.test / PaidDemo2026!  (registered + paid, race not started)');

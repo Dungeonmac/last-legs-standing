@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Help desk · Last Legs Standing</title>
+  <meta name="description" content="Need help with an upload, the tracker, your account, payment or shipping? Contact the Last Legs Standing help desk.">
+  <meta name="theme-color" content="#0c0d0f">
+  <link rel="icon" href="/img/favicon.svg" type="image/svg+xml">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body data-page="help">
+<main id="main">
+  <section class="page-head"><div class="wrap">
+    <div class="eyebrow">Help desk</div>
+    <h1 class="display" style="font-size:clamp(2.4rem,6vw,4rem)">We’ve got your back.</h1>
+    <p class="lead">Problem with an upload, the tracker, your account, a payment or an award? Have a complaint? Tell us and a real person will get back to you.</p>
+  </div></section>
+
+  <section class="section" style="padding-top:2.5rem"><div class="wrap stack">
+    <div class="deadline-warning" role="note">
+      <div class="icon" aria-hidden="true">⏱</div>
+      <div>
+        <b>Read this first: the deadline does not move.</b>
+        <p>Getting your run uploaded before <b>23:59:59 UTC</b> is <b>your responsibility</b>. If you contact us after the cutoff, or so close to it that we can’t help you in time, and your run doesn’t get submitted, <b>that’s on you, not us</b>. Help requests, dead batteries and app problems do not extend the deadline or reinstate an eliminated runner. Upload early, and if something goes wrong, reach out <b>hours before the cutoff, not minutes</b>.</p>
+        <p class="small" style="margin-top:.6rem">Today’s deadline in your time zone: <b id="dl-local">—</b> · <span id="dl-left"></span></p>
+      </div>
+    </div>
+
+    <div class="grid g2" style="align-items:start;margin-top:2rem">
+      <form id="help-form" class="card stack" novalidate>
+        <h2 style="margin:0">Send us a message</h2>
+        <div id="err" class="alert error hidden" role="alert"></div>
+        <div class="form-grid">
+          <div class="field c3"><label class="req" for="h_name">Your name</label><input id="h_name" autocomplete="name" required maxlength="120"></div>
+          <div class="field c3"><label class="req" for="h_email">Your email</label><input id="h_email" type="email" autocomplete="email" required><span class="hint">We’ll reply here.</span></div>
+          <div class="field c2"><label for="h_bib">Bib number</label><input id="h_bib" inputmode="numeric" maxlength="20" placeholder="If you have one"></div>
+          <div class="field c4"><label class="req" for="h_topic">What do you need help with?</label><select id="h_topic" required><option value="">Choose a topic…</option></select></div>
+          <div class="field"><label class="req" for="h_msg">Message</label><textarea id="h_msg" required maxlength="5000" placeholder="What happened? What were you trying to do? If it’s about a run, tell us the date, the distance and the app or watch you used."></textarea></div>
+          <div class="hp" aria-hidden="true"><label for="h_website">Leave this empty</label><input id="h_website" tabindex="-1" autocomplete="off"></div>
+        </div>
+        <button class="btn lg block" type="submit" id="send">Send message</button>
+        <p class="hint" style="margin:0">Your message goes straight to the race team. We never share it.</p>
+      </form>
+
+      <div class="stack">
+        <div class="card">
+          <h3>Other ways to reach us</h3>
+          <div class="contact-line"><span class="ic" aria-hidden="true">✉</span><div><div class="small muted">Email</div><a id="c-email" href="#"></a></div></div>
+          <div class="contact-line"><span class="ic" aria-hidden="true">☎</span><div><div class="small muted">Phone (temporary number)</div><a id="c-phone" href="#"></a></div></div>
+        </div>
+        <div class="card">
+          <h3>Fix it yourself in a minute</h3>
+          <ul class="small ink2" style="padding-left:1.1rem;margin:0;display:grid;gap:.5rem">
+            <li><a href="/how-to-submit.html">How to submit a run, step by step</a>: the tracker, Strava and watches.</li>
+            <li><a href="/how-to-submit.html#trouble">Something went wrong with my upload</a></li>
+            <li><a href="/#rules">The rules</a> and the <a href="/#faq">FAQ</a></li>
+            <li>Forgot your password? Send us a message with the topic <b>Account or login</b>.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div></section>
+</main>
+<script type="module">
+  import { mountChrome, api, fmtLocal, esc, SUPPORT } from '/js/common.js';
+  const me = await mountChrome();
+  const $ = (id) => document.getElementById(id);
+
+  $('c-email').href = `mailto:${SUPPORT.email}`;
+  $('c-email').textContent = SUPPORT.email;
+  $('c-phone').href = SUPPORT.phoneHref;
+  $('c-phone').textContent = SUPPORT.phone;
+
+  const now = new Date();
+  const deadline = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 23, 59, 59);
+  $('dl-local').textContent = fmtLocal(deadline, false);
+  const left = () => { const m = Math.max(0, Math.floor((deadline + 999 - Date.now()) / 60_000)); $('dl-left').textContent = `${Math.floor(m / 60)} h ${m % 60} min left today`; };
+  left();
+  setInterval(left, 30_000);
+
+  const { supportTopics } = await api('/config');
+  $('h_topic').insertAdjacentHTML('beforeend', supportTopics.map((t) => `<option>${esc(t)}</option>`).join(''));
+  const wanted = new URLSearchParams(location.search).get('topic');
+  if (wanted && supportTopics.includes(wanted)) $('h_topic').value = wanted;
+
+  if (me.user) {
+    $('h_name').value = `${me.user.first_name} ${me.user.last_name}`;
+    $('h_email').value = me.user.email;
+    if (me.registrations?.[0]) $('h_bib').value = me.registrations[0].bib;
+  }
+
+  $('help-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const err = $('err');
+    err.classList.add('hidden');
+    for (const el of e.target.querySelectorAll('input, select, textarea')) {
+      if (el.closest('.hp')) continue;
+      if (!el.checkValidity()) {
+        err.textContent = `Please check: ${el.closest('.field').querySelector('label').textContent}.`;
+        err.classList.remove('hidden');
+        el.focus();
+        return;
+      }
+    }
+    const btn = $('send');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Sending…';
+    try {
+      const res = await api('/support', { json: {
+        name: $('h_name').value, email: $('h_email').value, bib: $('h_bib').value, topic: $('h_topic').value,
+        message: $('h_msg').value, website: $('h_website').value,
+      } });
+      e.target.innerHTML = `
+        <div class="center" style="padding:1.5rem 0">
+          <div style="font-size:2.6rem" aria-hidden="true">✓</div>
+          <h2 style="margin:.4rem 0">Message received</h2>
+          <p class="ink2">Thanks, ${esc($('h_name').value.split(' ')[0])}. ${res.id ? `Your reference number is <b>#${res.id}</b>. ` : ''}We’ll reply to <b>${esc($('h_email').value)}</b> as soon as we can.</p>
+          <p class="small muted">Remember: the daily deadline doesn’t move while you wait. If you can still upload, keep trying. The <a href="/how-to-submit.html#trouble">troubleshooting guide</a> may help.</p>
+        </div>`;
+    } catch (x) {
+      err.innerHTML = `${esc(x.message)} You can also email us at <a href="mailto:${SUPPORT.email}">${SUPPORT.email}</a>.`;
+      err.classList.remove('hidden');
+      btn.disabled = false;
+      btn.textContent = 'Send message';
+    }
+  });
+</script>
+</body>
+</html>

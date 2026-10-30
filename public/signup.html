@@ -52,15 +52,30 @@
               <div class="field c3"><label class="req" for="last_name">Last name</label><input id="last_name" name="last_name" autocomplete="family-name" required maxlength="60"></div>
               <div class="field c3 account-only"><label class="req" for="email">Email</label><input id="email" name="email" type="email" autocomplete="email" required></div>
               <div class="field c3 account-only"><label class="req" for="password">Create a password</label><input id="password" name="password" type="password" autocomplete="new-password" minlength="8" required><span class="hint">8+ characters, with a letter and a number.</span></div>
-              <div class="field c2"><label class="req" for="dob">Date of birth</label><input id="dob" name="dob" type="date" required autocomplete="bday"><span class="hint">You must be 18+ on the start date.</span></div>
-              <div class="field c2"><label for="gender">Gender</label>
-                <select id="gender" name="gender"><option value="">Prefer not to say</option><option>Female</option><option>Male</option><option>Non-binary</option></select></div>
+              <div class="field c2"><label class="req" for="dob">Date of birth</label><input id="dob" name="dob" type="date" required autocomplete="bday"><span class="hint" id="dob-hint">Under 18 on the start date? A parent or guardian must give consent.</span></div>
+              <div class="field c2"><label class="req" for="gender">Gender</label>
+                <select id="gender" name="gender" required><option value="">Select…</option><option>Male</option><option>Female</option></select></div>
               <div class="field c2"><label class="req" for="shirt_size">Shirt size</label>
-                <select id="shirt_size" name="shirt_size" required><option value="">Select…</option><option>XS</option><option>S</option><option>M</option><option>L</option><option>XL</option><option>XXL</option><option>XXXL</option></select></div>
+                <select id="shirt_size" name="shirt_size" required><option value="">Select…</option><option>XS</option><option>S</option><option>M</option><option>L</option><option>XL</option><option>XXL</option><option>XXXL</option></select><span class="hint">Award winners get a shirt.</span></div>
               <div class="field c3"><label class="req" for="country">Country you’ll run in</label><input id="country" name="country" list="countries" required autocomplete="country-name"></div>
               <div class="field c3"><label class="req" for="phone">Phone</label><input id="phone" name="phone" type="tel" autocomplete="tel" required></div>
               <div class="field c3"><label class="req" for="emergency_name">Emergency contact name</label><input id="emergency_name" name="emergency_name" required></div>
               <div class="field c3"><label class="req" for="emergency_phone">Emergency contact phone</label><input id="emergency_phone" name="emergency_phone" type="tel" required></div>
+            </div>
+          </fieldset>
+
+          <!-- 3b. Parent / guardian (runners under 18 only) -->
+          <fieldset id="guardian-set" class="hidden">
+            <legend><span class="n">03+</span>Parent or guardian</legend>
+            <div class="alert warn" style="margin-bottom:1.1rem">
+              <b>This runner is under 18 on the start date.</b> A parent or legal guardian must give consent. They’ll read the rules and the waiver and sign them with a typed signature at the end of sign-up. We may contact them to confirm.
+            </div>
+            <div class="form-grid">
+              <div class="field c3"><label class="req" for="g_name">Parent / guardian full name</label><input id="g_name" autocomplete="off" maxlength="120"></div>
+              <div class="field c3"><label class="req" for="g_rel">Relationship to the runner</label>
+                <select id="g_rel"><option value="">Select…</option><option>Mother</option><option>Father</option><option>Legal guardian</option></select></div>
+              <div class="field c3"><label class="req" for="g_email">Parent / guardian email</label><input id="g_email" type="email" autocomplete="off"></div>
+              <div class="field c3"><label class="req" for="g_phone">Parent / guardian phone</label><input id="g_phone" type="tel" autocomplete="off"></div>
             </div>
           </fieldset>
 
@@ -69,7 +84,7 @@
             <legend><span class="n">04</span>Shipping address</legend>
             <div class="privacy-note">
               <span aria-hidden="true">🔒</span>
-              <span><b>Your information stays private.</b> We never sell, rent or share your personal information. Your address is used only to ship your shirt, medal and any prizes. <a href="/privacy.html" target="_blank">Privacy policy</a></span>
+              <span><b>Your information stays private.</b> We never sell, rent or share your personal information. Your address is used only to ship a shirt, medal and any prizes if you win an award. <a href="/privacy.html" target="_blank">Privacy policy</a></span>
             </div>
             <div class="form-grid" data-addr="shipping">
               <div class="field c4"><label class="req">Street address</label><input name="line1" autocomplete="shipping address-line1" required></div>
@@ -120,7 +135,7 @@
             <h3 id="sum-event">Select a challenge</h3>
             <p class="muted small" id="sum-date"></p>
             <div class="line"><span>Entry fee</span><span id="sum-fee" class="num">—</span></div>
-            <div class="line"><span>Shirt + medal shipping</span><span>Included</span></div>
+            <div class="line"><span>Award shirt + medal shipping</span><span>Free for winners</span></div>
             <div class="line total"><span>Total</span><span id="sum-total" class="num">—</span></div>
             <button class="btn block lg" type="submit" style="margin-top:1rem">Review rules &amp; waiver</button>
             <p class="hint" style="margin-top:.8rem">Next you’ll read the rules and sign the liability waiver. Your card is charged only after you agree. Entry fees are non-refundable.</p>
@@ -144,10 +159,19 @@
         <div class="stack" style="margin-top:1.2rem">
           <label class="check"><input type="checkbox" id="ag_rules" disabled> <span>I have read and agree to follow the <b>official rules</b>, including the daily 23:59:59 UTC deadline, elimination, the tiebreakers and disqualification for cheating.</span></label>
           <label class="check"><input type="checkbox" id="ag_waiver" disabled> <span>I have read the <b>waiver and release of liability</b>. I understand that I <b>assume all risks</b> of taking part, including <b>serious injury and death</b>, and that I am <b>giving up my right to sue</b>.</span></label>
-          <label class="check"><input type="checkbox" id="ag_age" disabled> <span>I am <b>18 or older</b>, physically fit to take part, and responsible for my own health and safety.</span></label>
+          <label class="check"><input type="checkbox" id="ag_age" disabled> <span id="ag_age_text">I am <b>18 or older</b>, physically fit to take part, and responsible for my own health and safety.</span></label>
           <div class="form-grid">
             <div class="field c4"><label class="req" for="sig">Electronic signature: type your full name</label><input id="sig" autocomplete="off" disabled placeholder="First Last"></div>
             <div class="field c2"><label for="sig-date">Date</label><input id="sig-date" readonly tabindex="-1"></div>
+          </div>
+          <div id="guardian-sign" class="stack hidden" style="border-top:1px solid var(--rule);padding-top:1.2rem">
+            <h3 style="margin:0">Parent or guardian consent</h3>
+            <p class="small ink2" style="margin:0">This runner is under 18 on the start date. A parent or legal guardian must read the rules and the waiver above, and sign below.</p>
+            <label class="check"><input type="checkbox" id="ag_guardian" disabled> <span>I am the <b>parent or legal guardian</b> of <b id="g-runner-name">this runner</b>. I have read the rules and the waiver and explained them to the runner. <b>I give my permission</b> for them to take part, I agree to the waiver and release <b>on their behalf and my own</b>, and I accept responsibility for supervising their running and stopping them if it becomes unsafe.</span></label>
+            <div class="form-grid">
+              <div class="field c4"><label class="req" for="g_sig">Parent / guardian signature: type your full name</label><input id="g_sig" autocomplete="off" disabled></div>
+              <div class="field c2"><label for="g-sig-date">Date</label><input id="g-sig-date" readonly tabindex="-1"></div>
+            </div>
           </div>
           <div id="wd-error" class="alert error hidden" role="alert"></div>
         </div>
@@ -164,7 +188,8 @@
 
 <script type="module">
   import { mountChrome, api, money, fmtDate, fmtLocal, esc } from '/js/common.js';
-  import { RULES, WAIVER_HTML, WAIVER_VERSION } from '/js/legal.js';
+  import { RULES, GOLDEN_RULES, WAIVER_HTML, WAIVER_VERSION } from '/js/legal.js';
+  import { playHype } from '/js/hype.js';
 
   const COUNTRIES = 'Argentina,Australia,Austria,Belgium,Brazil,Bulgaria,Canada,Chile,China,Colombia,Costa Rica,Croatia,Czechia,Denmark,Ecuador,Egypt,Estonia,Ethiopia,Finland,France,Germany,Ghana,Greece,Hong Kong,Hungary,Iceland,India,Indonesia,Ireland,Israel,Italy,Jamaica,Japan,Kenya,Latvia,Lithuania,Luxembourg,Malaysia,Mexico,Morocco,Nepal,Netherlands,New Zealand,Nigeria,Norway,Pakistan,Peru,Philippines,Poland,Portugal,Puerto Rico,Romania,Saudi Arabia,Serbia,Singapore,Slovakia,Slovenia,South Africa,South Korea,Spain,Sweden,Switzerland,Taiwan,Thailand,Turkey,Uganda,Ukraine,United Arab Emirates,United Kingdom,United States,Uruguay,Vietnam'.split(',');
   document.getElementById('countries').innerHTML = COUNTRIES.map((c) => `<option value="${c}">`).join('');
@@ -196,6 +221,26 @@
   }
   choices.addEventListener('change', updateSummary);
   updateSummary();
+
+  // ---- runners under 18 need a parent or guardian
+  function ageOnStart() {
+    const v = $('dob').value;
+    const e = selected();
+    if (!v || !e) return null;
+    const dob = new Date(`${v}T00:00:00Z`);
+    const start = new Date(e.start_ms);
+    let age = start.getUTCFullYear() - dob.getUTCFullYear();
+    if (start.getUTCMonth() < dob.getUTCMonth() || (start.getUTCMonth() === dob.getUTCMonth() && start.getUTCDate() < dob.getUTCDate())) age--;
+    return age;
+  }
+  const isMinor = () => { const a = ageOnStart(); return a !== null && a < 18; };
+  function updateGuardian() {
+    const minor = isMinor();
+    $('guardian-set').classList.toggle('hidden', !minor);
+    ['g_name', 'g_rel', 'g_email', 'g_phone'].forEach((id) => ($(id).required = minor));
+  }
+  $('dob').addEventListener('change', updateGuardian);
+  choices.addEventListener('change', updateGuardian);
 
   // ---- logged-in runners don't need a new account
   if (me.user) {
@@ -265,11 +310,8 @@
         return showError(`Please check: ${label.replace(' *', '')}.`, el), false;
       }
     }
-    const dob = new Date(`${$('dob').value}T00:00:00Z`);
-    const start = new Date(selected().start_ms);
-    let age = start.getUTCFullYear() - dob.getUTCFullYear();
-    if (start.getUTCMonth() < dob.getUTCMonth() || (start.getUTCMonth() === dob.getUTCMonth() && start.getUTCDate() < dob.getUTCDate())) age--;
-    if (!(age >= 18)) return showError('You must be at least 18 years old on the start date.', $('dob')), false;
+    if (!(new Date(`${$('dob').value}T00:00:00Z`) < new Date())) return showError('Check your date of birth.', $('dob')), false;
+    if (isMinor() && norm($('g_name').value) === norm(fullName())) return showError('The parent or guardian must be a different person from the runner.', $('g_name')), false;
     if (!me.user && !(/[A-Za-z]/.test($('password').value) && /\d/.test($('password').value))) return showError('Your password needs at least one letter and one number.', $('password')), false;
     if (!config.stripePublishableKey) {
       const n = digits($('cc_number').value);
@@ -284,10 +326,11 @@
 
   // ---- rules & waiver dialog
   const dlg = $('waiver-dialog');
-  $('wd-rules').innerHTML = `<ol style="padding-left:1.2rem;margin:0">${RULES.map(([t, d]) => `<li style="margin-bottom:.5rem"><b style="color:var(--ink)">${t}</b> ${d}</li>`).join('')}</ol>`;
+  $('wd-rules').innerHTML = `<p style="margin:0 0 .4rem"><b style="color:var(--gold)">The five golden rules</b></p><ol style="padding-left:1.2rem;margin:0 0 1rem">${GOLDEN_RULES.map(([t, d]) => `<li style="margin-bottom:.4rem"><b style="color:var(--ink)">${t}</b> ${d}</li>`).join('')}</ol>
+    <p style="margin:0 0 .4rem"><b style="color:var(--ink)">The full rules</b></p><ol style="padding-left:1.2rem;margin:0">${RULES.map(([t, d]) => `<li style="margin-bottom:.5rem"><b style="color:var(--ink)">${t}</b> ${d}</li>`).join('')}</ol>`;
   $('wd-waiver').innerHTML = WAIVER_HTML;
-  $('sig-date').value = new Date().toLocaleDateString();
-  const gated = ['ag_rules', 'ag_waiver', 'ag_age', 'sig'].map($);
+  $('sig-date').value = $('g-sig-date').value = new Date().toLocaleDateString();
+  const gated = ['ag_rules', 'ag_waiver', 'ag_age', 'sig', 'ag_guardian', 'g_sig'].map($);
   $('wd-waiver').addEventListener('scroll', (e) => {
     const b = e.target;
     if (b.scrollTop + b.clientHeight >= b.scrollHeight - 24) {
@@ -299,7 +342,8 @@
   const norm = (s) => s.trim().replace(/\s+/g, ' ').toLowerCase();
   const fullName = () => `${$('first_name').value} ${$('last_name').value}`;
   function checkAgree() {
-    $('agree-btn').disabled = !($('ag_rules').checked && $('ag_waiver').checked && $('ag_age').checked && norm($('sig').value) === norm(fullName()));
+    const guardianOk = !isMinor() || ($('ag_guardian').checked && norm($('g_sig').value) === norm($('g_name').value));
+    $('agree-btn').disabled = !($('ag_rules').checked && $('ag_waiver').checked && $('ag_age').checked && norm($('sig').value) === norm(fullName()) && guardianOk);
   }
   dlg.addEventListener('input', checkAgree);
   dlg.addEventListener('change', checkAgree);
@@ -309,6 +353,14 @@
     e.preventDefault();
     if (!validate()) return;
     $('sig').placeholder = fullName();
+    const minor = isMinor();
+    $('guardian-sign').classList.toggle('hidden', !minor);
+    $('ag_age_text').innerHTML = minor
+      ? 'I am <b>under 18</b> and I have my <b>parent’s or guardian’s permission</b> to take part. I am physically fit and I will run safely.'
+      : 'I am <b>18 or older</b>, physically fit to take part, and responsible for my own health and safety.';
+    $('g-runner-name').textContent = fullName();
+    $('g_sig').placeholder = $('g_name').value;
+    checkAgree();
     $('wd-error').classList.add('hidden');
     dlg.showModal();
   });
@@ -328,6 +380,10 @@
       emergency_name: $('emergency_name').value.trim(), emergency_phone: $('emergency_phone').value.trim(),
       shipping: addr('shipping'), billing_same: $('billing_same').checked, billing: addr('billing'),
       waiver: { version: WAIVER_VERSION, signed_name: $('sig').value.trim(), agreed_rules: true, agreed_waiver: true, agreed_age: true },
+      guardian: isMinor() ? {
+        name: $('g_name').value.trim(), relationship: $('g_rel').value, email: $('g_email').value.trim(), phone: $('g_phone').value.trim(),
+        signed_name: $('g_sig').value.trim(), agreed: $('ag_guardian').checked,
+      } : null,
     };
     try {
       if (stripe) {
@@ -352,10 +408,11 @@
           <div class="eyebrow">You’re in</div>
           <h2 class="display" style="font-size:3.4rem">Bib #${res.bib}</h2>
           <p class="lead" style="margin:0 auto 1rem">Welcome to <b>${esc(res.event.name)}</b>. Day 1 is <b>1 km</b> and starts <b>${fmtLocal(res.event.start_ms)}</b>.</p>
-          ${res.demoPayment ? '<p class="badge demo">Test payment: no card was charged</p>' : '<p class="muted">A receipt has been sent to your email.</p>'}
-          <div class="row" style="justify-content:center;margin-top:1.5rem"><a class="btn" href="/account.html">Go to my race</a><a class="btn ghost" href="/#rules">Re-read the rules</a></div>
+          ${res.demoPayment ? '<p class="badge demo">Test payment: no card was charged</p>' : '<p class="muted">Your payment is confirmed.</p>'}
+          <div class="row" style="justify-content:center;margin-top:1.5rem"><a class="btn" href="/account.html">Go to my race</a><a class="btn ghost" href="/how-to-submit.html">How to submit runs</a></div>
         </div>`;
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      window.scrollTo({ top: 0 });
+      await playHype({ first: body.first_name, last: body.last_name, bib: res.bib, event: res.event.name, startMs: res.event.start_ms });
     } catch (err) {
       $('wd-error').textContent = err.message;
       $('wd-error').classList.remove('hidden');

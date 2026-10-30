@@ -2,6 +2,8 @@
 
 export const SITE = 'Last Legs Standing';
 export const KM_PER_MI = 1.609344;
+// Help desk contact. The phone number is a placeholder until a real line is set up.
+export const SUPPORT = { email: 'jeffeersonjeff546@gmail.com', phone: '+1 (555) 010-2027', phoneHref: 'tel:+15550102027' };
 
 // ---------------------------------------------------------------- API
 export async function api(path, opts = {}) {
@@ -118,6 +120,15 @@ const NAV = [
   ['/#rules', 'Rules', 'rules'],
   ['/events.html', 'Events', 'events'],
   ['/live.html', 'Live', 'live'],
+  ['/help.html', 'Help', 'help'],
+];
+
+// Bottom tab bar for logged-in runners on phones.
+const TABS = [
+  ['/account.html', 'My race', 'account', '<path d="M4 20V10l8-6 8 6v10h-5v-6H9v6z"/>'],
+  ['/upload.html', 'Upload', 'upload', '<path d="M12 16V4m0 0L7 9m5-5 5 5M4 20h16"/>'],
+  ['/track.html', 'Tracker', 'track', '<circle cx="12" cy="10" r="3"/><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"/>'],
+  ['/how-to-submit.html', 'How to', 'guide', '<circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6V14m0 3v.01"/>'],
 ];
 
 function header(page, me) {
@@ -168,8 +179,10 @@ function footer() {
           <li><a href="/events.html">Events</a></li><li><a href="/live.html">Live race</a></li></ul></div>
         <div><h4>Runners</h4><ul>
           <li><a href="/signup.html">Sign up</a></li><li><a href="/login.html">Log in</a></li>
-          <li><a href="/upload.html">Upload a run</a></li><li><a href="/track.html">Run tracker</a></li></ul></div>
-        <div><h4>Legal</h4><ul>
+          <li><a href="/upload.html">Upload a run</a></li><li><a href="/track.html">Run tracker</a></li>
+          <li><a href="/how-to-submit.html">How to submit a run</a></li></ul></div>
+        <div><h4>Help &amp; legal</h4><ul>
+          <li><a href="/help.html">Help desk &amp; contact</a></li>
           <li><a href="/waiver.html">Waiver &amp; release</a></li><li><a href="/privacy.html">Privacy</a></li>
           <li><a href="/#faq">FAQ</a></li></ul></div>
       </div>
@@ -188,6 +201,11 @@ export async function mountChrome() {
   const me = await getMe();
   document.body.insertAdjacentHTML('afterbegin', header(page, me));
   document.body.insertAdjacentHTML('beforeend', footer());
+  if (me.user) {
+    document.body.classList.add('has-tabbar');
+    document.body.insertAdjacentHTML('beforeend', `<nav class="tabbar" aria-label="Runner">${TABS.map(([href, label, key, icon]) =>
+      `<a href="${href}" ${key === page ? 'aria-current="page"' : ''}><svg viewBox="0 0 24 24" aria-hidden="true">${icon}</svg>${label}</a>`).join('')}</nav>`);
+  }
   const btn = document.querySelector('.menu-btn');
   const nav = document.getElementById('nav');
   btn.addEventListener('click', () => {

@@ -1,4 +1,5 @@
 -- Last Legs Standing database schema (Cloudflare D1 / SQLite)
+DROP TABLE IF EXISTS support_messages;
 DROP TABLE IF EXISTS runs;
 DROP TABLE IF EXISTS registrations;
 DROP TABLE IF EXISTS addresses;
@@ -71,6 +72,12 @@ CREATE TABLE registrations (
   waiver_signed_name TEXT NOT NULL,
   waiver_signed_at TEXT NOT NULL,
   waiver_ip TEXT,
+  guardian_name TEXT,                            -- runners under 18 on the start date only
+  guardian_relationship TEXT,
+  guardian_email TEXT,
+  guardian_phone TEXT,
+  guardian_signed_name TEXT,
+  guardian_signed_at TEXT,
   eliminated_day INTEGER,
   status_reason TEXT,
   final_place INTEGER,
@@ -116,3 +123,18 @@ CREATE TABLE strava_tokens (
   refresh_token TEXT NOT NULL,
   expires_at INTEGER NOT NULL
 );
+
+CREATE TABLE support_messages (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  name TEXT NOT NULL,
+  email TEXT NOT NULL,
+  bib TEXT,
+  topic TEXT NOT NULL,
+  message TEXT NOT NULL,
+  ip TEXT,
+  emailed INTEGER NOT NULL DEFAULT 0,             -- 1 = forwarded to SUPPORT_EMAIL
+  status TEXT NOT NULL DEFAULT 'open',            -- open | closed
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+CREATE INDEX support_created ON support_messages(created_at);
