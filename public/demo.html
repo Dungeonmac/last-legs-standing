@@ -49,7 +49,7 @@
   await mountChrome();
   const err = document.getElementById('err');
   // The demo accounts only exist in the local database (npm run db:reset), never on the live site.
-  const local = ['localhost', '127.0.0.1'].includes(location.hostname) || /^(192.168|10)./.test(location.hostname);
+  const local = ['localhost', '127.0.0.1'].includes(location.hostname) || /^(192\.168|10)\./.test(location.hostname);
   if (!local) {
     document.querySelectorAll('[data-email]').forEach((b) => b.remove());
     err.className = 'alert warn';
