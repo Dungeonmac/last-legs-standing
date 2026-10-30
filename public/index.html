@@ -27,8 +27,8 @@
         <h1 class="display">One more K.<br>Every day.<br><span class="accent">Until one is left.</span></h1>
         <p class="lead">Day 1 is 1 km. Day 2 is 2. Run it anywhere on Earth, upload before midnight UTC, and come back tomorrow for one more. Miss a day and you’re out. There is no finish line. The last runner standing wins.</p>
         <div class="row hero-ctas">
-          <a class="btn lg" href="/signup.html" id="hero-cta">Enter the challenge</a>
-          <a class="btn ghost lg" href="#about" id="hero-cta-2">How it works</a>
+          <a class="btn lg" href="#about" id="hero-cta">See how it works</a>
+          <a class="btn ghost lg" href="#rules" id="hero-cta-2">Read the rules</a>
         </div>
         <ul class="hero-trust">
           <li>Run anywhere</li><li>Any GPS watch or phone</li><li>Free built-in tracker</li><li>Awards in every age group</li>
@@ -38,8 +38,8 @@
       <aside class="race-card" aria-labelledby="rc-name">
         <div class="rc-head"><span class="rc-kicker">Next race</span><span class="badge upcoming" id="rc-badge">Upcoming</span></div>
         <h2 id="rc-name">Last Legs Standing</h2>
-        <p class="rc-date"><b id="rc-date">—</b><span id="rc-local"></span></p>
-        <div class="rc-label">Day 1 starts in</div>
+        <p class="rc-date"><b id="rc-date">Date to be announced</b><span id="rc-local">Day 1 starts at 00:00 UTC</span></p>
+        <div class="rc-label hidden" id="rc-label">Day 1 starts in</div>
         <div id="home-countdown"></div>
         <div class="rc-climb" aria-hidden="true" id="rc-climb"></div>
         <dl class="rc-facts">
@@ -225,6 +225,7 @@
     $('rc-date').textContent = fmtDate(next.start_ms, 'UTC');
     $('rc-local').textContent = `00:00 UTC · ${fmtLocal(next.start_ms)} your time`;
     $('rc-fee').textContent = money(next.fee_cents);
+    $('rc-label').classList.remove('hidden');
     countdown($('home-countdown'), next.start_ms);
     if (config.registrationOpen) {
       $('reg-status').textContent = `Registration open · Season ${season}`;
@@ -232,16 +233,14 @@
       $('rc-badge').className = 'badge open';
       $('hero-cta').textContent = `Enter ${season} · ${money(next.fee_cents)}`;
       $('hero-cta').href = `/signup.html?event=${next.slug}`;
+      $('hero-cta-2').textContent = 'How it works';
+      $('hero-cta-2').href = '#about';
     } else {
       // Until card payments are live, the main button explains the race instead of leading to a closed form.
       $('reg-status').textContent = `Season ${season} · Registration opens soon`;
       $('rc-badge').textContent = 'Registration opens soon';
-      $('hero-cta').textContent = 'See how it works';
-      $('hero-cta').href = '#about';
-      $('hero-cta-2').textContent = 'Read the rules';
-      $('hero-cta-2').href = '#rules';
     }
-  });
+  }).catch(() => { /* keep the static fallback content */ });
   api('/live').then((l) => {
     if (!l.live) return;
     document.getElementById('live-banner').innerHTML =
