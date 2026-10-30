@@ -561,25 +561,34 @@ route('POST', '/support', async ({ request, env }) => {
   if (!SUPPORT_TOPICS.includes(b.topic)) throw new HttpError(400, 'Choose a topic.');
   if (String(b.message).trim().length < 10) throw new HttpError(400, 'Tell us a little more about the problem.');
   const ip = request.headers.get('cf-connecting-ip') || 'local';
-  const { n } = await env.DB.prepare(
-    `SELECT COUNT(*) AS n FROM support_messages WHERE ip = ? AND created_at > strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-10 minutes')`,
-  ).bind(ip).first();
-  if (n >= 5) throw new HttpError(429, 'You’ve sent several messages in the last few minutes. Please wait a little, or email us directly.');
-
-  const user = await currentUser(request, env);
   const msg = {
     name: clean(b.name, 120), email: clean(b.email, 200), bib: clean(b.bib, 20), topic: b.topic, message: clean(b.message, 5000),
   };
-  const res = await env.DB.prepare(
-    'INSERT INTO support_messages (user_id, name, email, bib, topic, message, ip) VALUES (?, ?, ?, ?, ?, ?, ?)',
-  ).bind(user?.id ?? null, msg.name, msg.email, msg.bib, msg.topic, msg.message, ip).run();
-  const id = res.meta.last_row_id;
+
+  // Save the message. If the database is unavailable (for example over its daily limit), the message is
+  // still emailed below, so a runner asking for help is never lost.
+  let id = null;
+  let user = null;
+  try {
+    const { n } = await env.DB.prepare(
+      `SELECT COUNT(*) AS n FROM support_messages WHERE ip = ? AND created_at > strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-10 minutes')`,
+    ).bind(ip).first();
+    if (n >= 5) throw new HttpError(429, 'You’ve sent several messages in the last few minutes. Please wait a little, or email us directly.');
+    user = await currentUser(request, env);
+    const res = await env.DB.prepare(
+      'INSERT INTO support_messages (user_id, name, email, bib, topic, message, ip) VALUES (?, ?, ?, ?, ?, ?, ?)',
+    ).bind(user?.id ?? null, msg.name, msg.email, msg.bib, msg.topic, msg.message, ip).run();
+    id = res.meta.last_row_id;
+  } catch (e) {
+    if (e instanceof HttpError || !emailEnabled(env)) throw e;
+    console.error('Help desk message not saved; emailing only', e);
+  }
 
   let emailed = false;
   if (emailEnabled(env)) {
     try {
       await sendEmail(env, {
-        to: env.SUPPORT_EMAIL, replyTo: msg.email, replyName: msg.name, subject: `[Help #${id}] ${msg.topic}: ${msg.name}`,
+        to: env.SUPPORT_EMAIL, replyTo: msg.email, replyName: msg.name, subject: `[Help ${id ? `#${id}` : '(not saved)'}] ${msg.topic}: ${msg.name}`,
         text: [
           `Topic: ${msg.topic}`, `From: ${msg.name} <${msg.email}>`, `Bib: ${msg.bib || '(none given)'}`,
           `Logged in as: ${user ? `${user.first_name} ${user.last_name} <${user.email}>` : '(not logged in)'}`,
@@ -587,11 +596,12 @@ route('POST', '/support', async ({ request, env }) => {
         ].join('\n'),
       });
       emailed = true;
-      await env.DB.prepare('UPDATE support_messages SET emailed = 1 WHERE id = ?').bind(id).run();
+      if (id) await env.DB.prepare('UPDATE support_messages SET emailed = 1 WHERE id = ?').bind(id).run().catch(() => {});
     } catch (e) {
       console.error('Help desk email failed', e); // the message is still saved and visible in Admin
     }
   }
+  if (!id && !emailed) throw new HttpError(503, 'We couldn’t send your message just now. Please email us directly.');
   return json({ ok: true, id, emailed }, 201);
 });
 
