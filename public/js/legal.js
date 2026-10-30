@@ -37,8 +37,10 @@ export function goldenRulesHTML() {
 
 export function rulesHTML() {
   return `${goldenRulesHTML()}
-    <h3 class="rules-rest-title">The full rules</h3>
-    <ol class="rules">${RULES.map(([t, d]) => `<li><div><b>${t}</b><p>${d}</p></div></li>`).join('')}</ol>`;
+    <details class="full-rules">
+      <summary>Read the full rules <span class="muted">(${RULES.length} rules, all part of sign-up)</span></summary>
+      <ol class="rules">${RULES.map(([t, d]) => `<li><div><b>${t}</b><p>${d}</p></div></li>`).join('')}</ol>
+    </details>`;
 }
 
 export const WAIVER_HTML = `

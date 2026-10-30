@@ -554,12 +554,28 @@ input, select, textarea { font-size: max(16px, 1em); }
 .division-tag { font-size: .72rem; font-weight: 700; color: var(--ink-2); background: var(--raise); border-radius: 6px; padding: .1rem .4rem; white-space: nowrap; }
 
 /* ---------- golden rules ---------- */
-.golden-rules { counter-reset: g; list-style: none; padding: 0; margin: 0 0 2.5rem; display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr)); }
+.golden-rules { counter-reset: g; list-style: none; padding: 0; margin: 0 0 1.5rem; display: grid; gap: .9rem; }
 .golden-rules li {
-  counter-increment: g; position: relative; padding: 1.3rem 1.2rem 1.2rem; border-radius: 14px; border: 1.5px solid #e2be4566;
-  background: linear-gradient(160deg, #e2be4518, var(--surface) 65%);
+  counter-increment: g; display: grid; grid-template-columns: auto 1fr; gap: .3rem 1.6rem; align-items: center;
+  padding: 1.5rem 1.8rem; border-radius: 16px; border: 1px solid #fc4c0255; border-left: 6px solid var(--orange);
+  background: linear-gradient(100deg, #fc4c0226 0%, #fc4c020a 45%, var(--surface) 100%);
+  box-shadow: 0 10px 30px #0006;
 }
-.golden-rules li::before { content: counter(g); display: block; font-stretch: 75%; font-weight: 900; font-size: 2.6rem; line-height: 1; color: var(--gold); margin-bottom: .5rem; }
-.golden-rules b { display: block; font-stretch: 75%; font-weight: 850; text-transform: uppercase; font-size: 1.2rem; line-height: 1.05; color: var(--ink); }
-.golden-rules p { margin: .5rem 0 0; color: var(--ink-2); font-size: .92rem; }
-.rules-rest-title { margin: 0 0 1rem; font-size: 1rem; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.golden-rules li::before {
+  content: counter(g); grid-row: span 2; font-stretch: 75%; font-weight: 900; font-size: clamp(3.4rem, 8vw, 5rem); line-height: .85;
+  color: var(--orange); min-width: 1.1em; text-align: center;
+}
+.golden-rules b {
+  display: block; font-stretch: 75%; font-weight: 900; text-transform: uppercase; font-size: clamp(1.5rem, 3.6vw, 2.3rem);
+  line-height: .95; color: var(--ink); letter-spacing: -.005em;
+}
+.golden-rules p { margin: 0; color: var(--ink-2); font-size: clamp(.95rem, 1.5vw, 1.08rem); }
+.golden-rules li:first-child { border-left-color: var(--gold); background: linear-gradient(100deg, #e2be452e 0%, #e2be450c 45%, var(--surface) 100%); border-color: #e2be4566; }
+.golden-rules li:first-child::before { color: var(--gold); }
+@media (max-width: 600px) { .golden-rules li { padding: 1.1rem 1.1rem 1.1rem 1rem; gap: .2rem 1rem; } }
+.full-rules { border: 1px solid var(--rule); border-radius: 14px; padding: 0; background: var(--surface); }
+.full-rules > summary { padding: 1.1rem 1.3rem; font-size: 1.05rem; }
+.full-rules[open] > summary { border-bottom: 1px solid var(--hair); }
+.full-rules > .rules { padding: 1.1rem; }
+.full-rules .muted { font-weight: 500; font-size: .88rem; }
+.full-rules > summary .muted { margin: 0 auto 0 .5rem; align-self: center; }
