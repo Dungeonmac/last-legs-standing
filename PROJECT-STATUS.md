@@ -1,6 +1,6 @@
 # Project status: where we left off
 
-**Live:** https://lastlegsstanding.com (also https://last-legs-standing.pages.dev) · **Code:** https://github.com/Dungeonmac/last-legs-standing (public)
+**Live:** https://lastlegstanding.com (main). lastlegsstanding.com and both www addresses 301-redirect to it (Cloudflare Redirect Rules). Also https://last-legs-standing.pages.dev · **Code:** https://github.com/Dungeonmac/last-legs-standing (public)
 Cloudflare account: david@grozea.net. Publish updates with `npm run deploy` (pushing to GitHub alone does not redeploy).
 
 _Last updated: 2026-10-30_
@@ -42,11 +42,11 @@ _Last updated: 2026-10-30_
 - The start date is TBD. March 1, 2027 is kept as a placeholder. Prizes are "To be announced".
 
 ## Still to do
-- [ ] Create an account on the live site (Log in > Create an account) with help@lastlegsstanding.com, then have Claude run `npm run make-admin -- help@lastlegsstanding.com`.
+- [ ] Create an account on the live site (Log in > Create an account) with the email you want as admin, then have Claude run `npm run make-admin -- that@email`.
 - [ ] Add the two anti-spoofing email records in Cloudflare DNS: TXT `@` = `v=spf1 -all`, and TXT `_dmarc` = `v=DMARC1; p=reject;`. Change them if the domain ever sends email.
-- [ ] Stripe account + keys (real payments; sign-up opens to the public once this is set). Strava developer app + keys (one-tap import).
+- [ ] Stripe account + keys (real payments). Then set RACE_SIGNUP_OPEN = "true" in wrangler.toml and deploy to open race sign-up. Log in and account creation are already on (ACCOUNTS_OPEN). Strava developer app + keys (one-tap import).
 - [ ] Lawyer review of the waiver/privacy text in `public/js/legal.js` (including the under-18 consent and having no minimum age), and fill in the placeholders.
-- [ ] Replace the temporary help desk phone number (`SUPPORT` in `public/js/common.js`).
+- [x] Help desk: help@lastlegstanding.com (forwards to the team inbox) and (646) 400-1514.
 - [ ] Enable R2 in the Cloudflare dashboard (keeps original run files), then uncomment the R2 lines in wrangler.toml and redeploy.
 - [ ] Optional: Workers Paid plan ($5/month) if traffic outgrows the free database limits.
 - [ ] Optional: www → lastlegsstanding.com redirect rule in Cloudflare (both work today).

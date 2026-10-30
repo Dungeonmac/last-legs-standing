@@ -54,7 +54,7 @@ Demo logins (local only):
 
 ## Live site
 
-- https://last-legs-standing.pages.dev (Cloudflare Pages project `last-legs-standing`, D1 database `lls-db`)
+- https://lastlegstanding.com (main; lastlegsstanding.com redirects to it) and https://last-legs-standing.pages.dev (Cloudflare Pages project `last-legs-standing`, D1 database `lls-db`)
 - Publish changes: `npm run deploy`. Reload the live demo data: `npm run db:prod-seed` (wipes the live database).
 - Admins: after someone signs up on the live site, run `npm run make-admin -- their@email.com`. Admin is never granted by email address alone (emails aren’t verified).
 

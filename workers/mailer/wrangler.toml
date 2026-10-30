@@ -11,5 +11,5 @@ name = "SEND_EMAIL"
 destination_address = "jeffeersonjeff546@gmail.com"
 
 [vars]
-FROM = "helpdesk@lastlegsstanding.com"
+FROM = "helpdesk@lastlegstanding.com"
 TO = "jeffeersonjeff546@gmail.com"
