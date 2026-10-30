@@ -1,5 +1,8 @@
 # Project status: where we left off
 
+**Live:** https://last-legs-standing.pages.dev · **Code:** https://github.com/Dungeonmac/last-legs-standing (public)
+Cloudflare account: david@grozea.net. Publish updates with `npm run deploy` (pushing to GitHub alone does not redeploy).
+
 _Last updated: 2026-10-30_
 
 ## Done
@@ -39,7 +42,11 @@ _Last updated: 2026-10-30_
 - [ ] Resend account (free) so help desk messages are emailed. Sign up with jeffeersonjeff546@gmail.com.
 - [ ] Stripe account + keys (real payments). Strava developer app + keys (one-tap import).
 - [ ] Optional: apply to the Garmin Connect Developer Program.
-- [ ] Push to GitHub and deploy to Cloudflare Pages (steps in README.md). Delete `public/demo.html` before launch.
+- [x] Pushed to GitHub (public) and deployed to Cloudflare Pages on 2026-10-30, with demo data and test-mode sign-up (by request). The live demo data has no admin account.
+- [ ] Before the real launch: remove the demo events/runners and `public/demo.html`, and switch on real payments.
+- [ ] Enable R2 in the Cloudflare dashboard (keeps original run files), then uncomment the R2 lines in wrangler.toml and redeploy.
+- [ ] Sign up on the live site with jeffeersonjeff546@gmail.com to get Admin access.
+- [ ] Optional: auto-deploy on every GitHub push (GitHub Action with a Cloudflare API token).
 - [ ] Confirm the award setup: 10-year age groups and "one award per runner" are my defaults (both are one-line changes in public/js/divisions.js).
 - [ ] Missing features: event editor in admin, password reset, email receipts/confirmations.
 - [ ] Optional: a native phone app (the web tracker stops when the screen locks on most phones).

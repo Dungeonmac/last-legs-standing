@@ -52,6 +52,12 @@ Demo logins (local only):
   - **Scored checks:** vehicle speed, impossible pace, GPS teleports, relocation during a pause, overlapping runs, computer-generated tracks, no sensors.
   - Scores of 30–69 are flagged for an admin. Scores of 70+ are rejected.
 
+## Live site
+
+- https://last-legs-standing.pages.dev (Cloudflare Pages project `last-legs-standing`, D1 database `lls-db`)
+- Publish changes: `npm run deploy`. Reload the live demo data: `npm run db:prod-seed` (wipes the live database).
+- Live admins come from `ADMIN_EMAILS` in wrangler.toml. Locally, `.dev.vars` sets the demo admin.
+
 ## Going live (Cloudflare + GitHub)
 
 1. Push this folder to a GitHub repo. `node_modules`, `.wrangler`, `.dev.vars` and `samples` are git-ignored.

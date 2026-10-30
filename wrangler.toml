@@ -7,12 +7,15 @@ compatibility_date = "2025-09-01"
 [[d1_databases]]
 binding = "DB"
 database_name = "lls-db"
-database_id = "00000000-0000-0000-0000-000000000000"
+database_id = "ac770aa8-7398-41ae-9d5f-7e9ed52ac5da"
 
 # Cloudflare R2 bucket for the original uploaded run files (GPX / TCX / FIT).
-[[r2_buckets]]
-binding = "UPLOADS"
-bucket_name = "lls-uploads"
+# Off until R2 is enabled in the Cloudflare dashboard. Runs are still verified and saved without it;
+# only the original files aren't kept. To turn on: enable R2, run `npx wrangler r2 bucket create lls-uploads`,
+# then uncomment these three lines and redeploy.
+# [[r2_buckets]]
+# binding = "UPLOADS"
+# bucket_name = "lls-uploads"
 
 [vars]
 SITE_NAME = "Last Legs Standing"
