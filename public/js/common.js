@@ -2,8 +2,9 @@
 
 export const SITE = 'Last Legs Standing';
 export const KM_PER_MI = 1.609344;
-// Help desk contact. The phone number is a placeholder until a real line is set up.
-export const SUPPORT = { email: 'jeffeersonjeff546@gmail.com', phone: '+1 (555) 010-2027', phoneHref: 'tel:+15550102027' };
+// Help desk contact. help@lastlegsstanding.com forwards to the team inbox (Cloudflare Email Routing).
+// The phone number is a placeholder until a real line is set up.
+export const SUPPORT = { email: 'help@lastlegsstanding.com', phone: '+1 (555) 010-2027', phoneHref: 'tel:+15550102027' };
 
 // ---------------------------------------------------------------- admin demo mode
 // Admins can switch on Demo mode to see the site with the sample races and runners (hidden from the public),
