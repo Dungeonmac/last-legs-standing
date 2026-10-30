@@ -57,6 +57,16 @@ function readToken(request) {
  */
 export const accountsOpen = (env) => env.ACCOUNTS_OPEN === 'true';
 
+/**
+ * Second switch, for race sign-up and payments only (RACE_SIGNUP_OPEN = "true"). Needs accounts to be open too.
+ * Lets people log in and create accounts while nobody can enter a race or be charged.
+ */
+export const raceSignupOpen = (env) => accountsOpen(env) && env.RACE_SIGNUP_OPEN === 'true';
+
+export function requireRaceSignupOpen(env) {
+  if (!raceSignupOpen(env)) throw new HttpError(403, 'Race registration opens soon. Thanks for your patience!');
+}
+
 export function requireAccountsOpen(env) {
   if (!accountsOpen(env)) throw new HttpError(403, 'Accounts and registration open soon. Thanks for your patience!');
 }

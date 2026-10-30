@@ -2,9 +2,8 @@
 
 export const SITE = 'Last Legs Standing';
 export const KM_PER_MI = 1.609344;
-// Help desk contact. help@lastlegsstanding.com forwards to the team inbox (Cloudflare Email Routing).
-// The phone number is a placeholder until a real line is set up.
-export const SUPPORT = { email: 'help@lastlegsstanding.com', phone: '+1 (555) 010-2027', phoneHref: 'tel:+15550102027' };
+// Help desk contact. help@lastlegstanding.com forwards to the team inbox (Cloudflare Email Routing).
+export const SUPPORT = { email: 'help@lastlegstanding.com', phone: '(646) 400-1514', phoneHref: 'tel:+16464001514' };
 
 // ---------------------------------------------------------------- admin demo mode
 // Admins can switch on Demo mode to see the site with the sample races and runners (hidden from the public),
@@ -147,6 +146,9 @@ const TABS = [
   ['/how-to-submit.html', 'How to', 'guide', '<circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6V14m0 3v.01"/>'],
 ];
 
+// Race sign-up links show only when registration is open (or for an admin previewing in demo mode).
+const showSignup = (me) => !!me.raceSignupOpen || (!!me.user?.isAdmin && demoOn());
+
 function header(page, me) {
   const u = getUnits();
   const links = NAV.map(([href, label, key]) =>
@@ -171,7 +173,7 @@ function header(page, me) {
         ${links}
         <div class="nav-actions">
           ${account}
-          ${me.accountsOpen === false ? '' : '<a href="/signup.html" class="btn sm">Sign up</a>'}
+          ${showSignup(me) ? '<a href="/signup.html" class="btn sm">Sign up</a>' : ''}
           <div class="units" role="group" aria-label="Distance units">
             <button data-u="km" aria-pressed="${u === 'km'}">KM</button><button data-u="mi" aria-pressed="${u === 'mi'}">MI</button>
           </div>
@@ -195,7 +197,7 @@ function footer(me) {
           <li><a href="/#about">How it works</a></li><li><a href="/#rules">Rules</a></li>
           <li><a href="/events.html">Events</a></li><li><a href="/live.html">Live race</a></li></ul></div>
         <div><h4>Runners</h4><ul>
-          ${me.accountsOpen === false ? '' : '<li><a href="/signup.html">Sign up</a></li><li><a href="/login.html">Log in</a></li>'}
+          ${showSignup(me) ? '<li><a href="/signup.html">Sign up</a></li>' : ''}${me.accountsOpen === false ? '' : '<li><a href="/login.html">Log in</a></li>'}
           <li><a href="/upload.html">Upload a run</a></li><li><a href="/track.html">Run tracker</a></li>
           <li><a href="/how-to-submit.html">How to submit a run</a></li></ul></div>
         <div><h4>Help &amp; legal</h4><ul>

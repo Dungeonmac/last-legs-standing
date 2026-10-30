@@ -1,5 +1,5 @@
 import { HttpError, json, readJson, required, clean, dayNumber, dayWindow, sha256Hex, randomToken } from './util.js';
-import { hashPassword, verifyPassword, validatePassword, createSession, clearSessionCookie, currentUser, destroySession, requireUser, requireAdmin, accountsOpen, requireAccountsOpen } from './auth.js';
+import { hashPassword, verifyPassword, validatePassword, createSession, clearSessionCookie, currentUser, destroySession, requireUser, requireAdmin, accountsOpen, requireAccountsOpen, raceSignupOpen, requireRaceSignupOpen } from './auth.js';
 import { parseActivityFile } from './parsers.js';
 import { computeMetrics, fingerprint, assessRun } from './analyze.js';
 import { syncEvent, liveStats, pastEventStats, publicEvent, recheckRegistration, standings, rankEvent, refreshTotals } from './race.js';
@@ -144,7 +144,8 @@ function validAddress(a, label) {
 route('GET', '/config', async ({ request, env }) => json({
   // Sign-up opens to the public once real card payments (Stripe) are set up. Admins in demo mode can preview it.
   accountsOpen: accountsOpen(env),
-  registrationOpen: accountsOpen(env) && (stripeEnabled(env) || (await isAdminDemo(request, env))),
+  // Sign-up is public only when race registration is switched on and Stripe is set up. Admins in demo mode can preview it.
+  registrationOpen: (raceSignupOpen(env) && stripeEnabled(env)) || (accountsOpen(env) && (await isAdminDemo(request, env))),
   stripePublishableKey: stripeEnabled(env) ? env.STRIPE_PUBLISHABLE_KEY : null,
   strava: stravaEnabled(env),
   waiverVersion: WAIVER_VERSION,
@@ -153,7 +154,7 @@ route('GET', '/config', async ({ request, env }) => json({
 
 route('GET', '/me', async ({ request, env }) => {
   const user = await viewer(request, env);
-  if (!user) return json({ user: null, accountsOpen: accountsOpen(env) });
+  if (!user) return json({ user: null, accountsOpen: accountsOpen(env), raceSignupOpen: raceSignupOpen(env) });
   const { results } = await env.DB.prepare(
     `SELECT r.id, r.bib, r.status, r.eliminated_day, r.final_place, r.shirt_size, r.amount_cents, r.payment_status, r.created_at,
             e.id AS event_id, e.slug, e.name, e.status AS event_status, e.start_date
@@ -173,6 +174,8 @@ route('GET', '/me', async ({ request, env }) => {
   return json({
     user: { id: user.id, email: user.email, first_name: user.first_name, last_name: user.last_name, isAdmin: user.isAdmin, demo: user.demo, viewingAs: user.viewingAs || null },
     registrations: results,
+    accountsOpen: accountsOpen(env),
+    raceSignupOpen: raceSignupOpen(env),
   });
 });
 
@@ -232,7 +235,7 @@ route('POST', '/auth/logout', async ({ request, env }) => {
 // The browser asks for a payment only after /signup with check_only has accepted every detail,
 // so a runner is never charged for a sign-up that would then be refused.
 route('POST', '/payments/intent', async ({ request, env }) => {
-  requireAccountsOpen(env);
+  requireRaceSignupOpen(env);
   if (!stripeEnabled(env)) throw new HttpError(400, 'Card payments are not set up yet.');
   const body = await readJson(request);
   const ev = await eventBySlug(env, clean(body.event_slug));
@@ -247,8 +250,12 @@ route('POST', '/signup', async ({ request, env }) => {
   requireAccountsOpen(env);
   const b = await readJson(request);
   const sessionUser = await currentUser(request, env);
-  const preview = !stripeEnabled(env) && !!sessionUser?.isAdmin && isDemoRequest(request);
-  if (!stripeEnabled(env) && !preview) throw new HttpError(403, 'Registration opens soon. Card payments are being set up.');
+  // Admins in demo mode always get a preview: everything is checked, nothing is saved or charged.
+  const preview = !!sessionUser?.isAdmin && isDemoRequest(request);
+  if (!preview) {
+    requireRaceSignupOpen(env);
+    if (!stripeEnabled(env)) throw new HttpError(403, 'Registration opens soon. Card payments are being set up.');
+  }
 
   required(b, ['event_slug', 'first_time', 'first_name', 'last_name', 'dob', 'gender', 'country', 'phone', 'emergency_name', 'emergency_phone', 'shirt_size']);
   if (!['first', 'returning'].includes(b.first_time)) throw new HttpError(400, 'Tell us whether this is your first time.');

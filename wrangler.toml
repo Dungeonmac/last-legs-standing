@@ -27,10 +27,12 @@ SITE_NAME = "Last Legs Standing"
 # Master switch for log in, new accounts, race sign-up and payments on the LIVE site.
 # Off until Stripe is set up. Turn on by changing to "true" and running npm run deploy.
 # (Locally, .dev.vars sets ACCOUNTS_OPEN=true so everything can still be tested.)
-ACCOUNTS_OPEN = "false"
+ACCOUNTS_OPEN = "true"
+# Race sign-up and payments, separately. Off until Stripe is set up.
+RACE_SIGNUP_OPEN = "false"
 # Admins are set on the account itself: after someone signs up, run  npm run make-admin -- their@email.com
 # Help desk messages are forwarded here (once RESEND_API_KEY is set) and always kept in Admin.
-SUPPORT_EMAIL = "help@lastlegsstanding.com"
+SUPPORT_EMAIL = "help@lastlegstanding.com"
 # Secrets (set with `wrangler pages secret put NAME`, or in .dev.vars locally):
 #   STRIPE_SECRET_KEY, STRIPE_PUBLISHABLE_KEY  -> real card payments (otherwise demo mode)
 #   STRAVA_CLIENT_ID, STRAVA_CLIENT_SECRET     -> "Connect Strava" button
