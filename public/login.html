@@ -55,6 +55,17 @@
     e.preventDefault();
     const err = document.getElementById('cerr');
     err.classList.add('hidden');
+    // Check the password here first, with the exact reason, before asking the server.
+    const pw = document.getElementById('c_pw').value;
+    const problem = pw.length < 8 ? 'Your password needs at least 8 characters.'
+      : !/[A-Za-z]/.test(pw) ? 'Your password needs at least one letter (A–Z).'
+        : !/\d/.test(pw) ? 'Your password needs at least one number (0–9).' : '';
+    const missing = ['c_first', 'c_last', 'c_email'].find((id) => !document.getElementById(id).value.trim());
+    if (missing || problem) {
+      err.textContent = missing ? 'Please fill in your name and email.' : problem;
+      err.classList.remove('hidden');
+      return;
+    }
     try {
       await api('/auth/register', { json: {
         first_name: document.getElementById('c_first').value.trim(), last_name: document.getElementById('c_last').value.trim(),

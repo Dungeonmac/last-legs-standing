@@ -48,6 +48,10 @@ export async function handle(request, env) {
     } catch (e) {
       if (e instanceof HttpError) return json({ error: e.message, ...e.extra }, e.status);
       console.error(e);
+      // The free database plan has a daily limit. Say so plainly instead of a vague error.
+      if (/D1_ERROR.*(limit|exceeded)/i.test(String(e?.message))) {
+        return json({ error: 'The site is over its daily database limit. It resets at midnight UTC. Please try again after that.' }, 503);
+      }
       return json({ error: 'Something went wrong on our side. Please try again.' }, 500);
     }
   }
