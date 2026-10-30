@@ -15,37 +15,42 @@
 <body data-page="home">
 <main id="main">
 
-  <!-- ============ HERO ============ -->
+  <!-- ============ HERO ============
+       Answers what / when / how to join in the first screen: headline + one primary action on the left,
+       the next race (date, countdown, key facts) on the right. Stacks to one column on phones. -->
   <section class="hero">
     <div class="hero-bg" role="img" aria-label="A lone runner crossing a bridge at sunrise"></div>
-    <div class="wrap">
-      <div id="live-banner"></div>
-      <div class="eyebrow">An annual worldwide running challenge</div>
-      <h1 class="display">One more K.<br>Every day.<br><span class="accent">Until one is left.</span></h1>
-      <p class="lead">Day 1 is 1 kilometer. Day 2 is 2. Day 30 is 30. Run it anywhere on Earth, upload it before midnight UTC, and come back tomorrow for one more. Miss a single day and you’re out. The last runner standing wins.</p>
-      <div class="row">
-        <a class="btn lg" href="/signup.html" id="hero-cta">Enter the challenge, $30</a>
-        <a class="btn ghost lg" href="#about">How it works</a>
+    <div class="wrap hero-grid">
+      <div class="hero-copy">
+        <div id="live-banner"></div>
+        <div class="hero-pill"><span class="pulse" aria-hidden="true"></span><span>Worldwide elimination race</span><span class="sep" aria-hidden="true"></span><span id="reg-status">Season 2027</span></div>
+        <h1 class="display">One more K.<br>Every day.<br><span class="accent">Until one is left.</span></h1>
+        <p class="lead">Day 1 is 1 km. Day 2 is 2. Run it anywhere on Earth, upload before midnight UTC, and come back tomorrow for one more. Miss a day and you’re out. There is no finish line. The last runner standing wins.</p>
+        <div class="row hero-ctas">
+          <a class="btn lg" href="/signup.html" id="hero-cta">Enter the challenge</a>
+          <a class="btn ghost lg" href="#about" id="hero-cta-2">How it works</a>
+        </div>
+        <ul class="hero-trust">
+          <li>Run anywhere</li><li>Any GPS watch or phone</li><li>Free built-in tracker</li><li>Awards in every age group</li>
+        </ul>
       </div>
-      <div class="hero-meta">
-        <div><b id="next-date">—</b><span>Next start (Day 1)</span></div>
-        <div><b>+1 km</b><span>Every single day</span></div>
-        <div><b>23:59:59</b><span>UTC daily deadline</span></div>
-        <div><b>Anywhere</b><span>Your roads, your trails</span></div>
-      </div>
-    </div>
-  </section>
 
-  <!-- ============ COUNTDOWN ============ -->
-  <section class="section tight alt">
-    <div class="wrap row between">
-      <div>
-        <div class="eyebrow" style="margin-bottom:.4rem">Countdown to Day 1</div>
-        <h2 style="margin:0" id="next-name">Last Legs Standing</h2>
-        <p class="muted small" style="margin:.2rem 0 0" id="next-start-detail"></p>
-      </div>
-      <div id="home-countdown"></div>
+      <aside class="race-card" aria-labelledby="rc-name">
+        <div class="rc-head"><span class="rc-kicker">Next race</span><span class="badge upcoming" id="rc-badge">Upcoming</span></div>
+        <h2 id="rc-name">Last Legs Standing</h2>
+        <p class="rc-date"><b id="rc-date">—</b><span id="rc-local"></span></p>
+        <div class="rc-label">Day 1 starts in</div>
+        <div id="home-countdown"></div>
+        <div class="rc-climb" aria-hidden="true" id="rc-climb"></div>
+        <dl class="rc-facts">
+          <div><dt>Entry</dt><dd id="rc-fee">$30</dd></div>
+          <div><dt>Daily deadline</dt><dd>23:59:59 UTC</dd></div>
+          <div><dt>Distance</dt><dd>+1 km a day</dd></div>
+          <div><dt>Finish line</dt><dd class="accent">None</dd></div>
+        </dl>
+      </aside>
     </div>
+    <a class="scroll-cue" href="#about" aria-label="Scroll to how it works"><span></span></a>
   </section>
 
   <!-- ============ ABOUT ============ -->
@@ -179,6 +184,8 @@
 
 <script type="module">
   import { mountChrome, api, countdown, fmtDate, fmtLocal, tz, both, money, esc } from '/js/common.js';
+  // Race card graphic: the daily distance climbing, bar by bar.
+  document.getElementById('rc-climb').innerHTML = Array.from({ length: 21 }, (_, i) => `<i style="height:${12 + i * 4.2}%;animation-delay:${i * 45}ms"></i>`).join('');
   import { rulesHTML } from '/js/legal.js';
   import { AGE_GROUP_LIST } from '/js/divisions.js';
   document.getElementById('ag-list').textContent = AGE_GROUP_LIST;
@@ -209,15 +216,30 @@
   countdown(document.getElementById('today-countdown'), todayDeadline + 999, { small: true });
 
   // Next event + live banner
-  api('/events').then((ev) => {
+  Promise.all([api('/events'), api('/config')]).then(([ev, config]) => {
     const next = ev.upcoming[0];
-    if (next) {
-      document.getElementById('next-date').textContent = fmtDate(next.start_ms, 'UTC');
-      document.getElementById('next-name').textContent = next.name;
-      document.getElementById('next-start-detail').textContent = `Day 1 begins ${fmtLocal(next.start_ms)} (00:00 UTC) · Entry ${money(next.fee_cents)}`;
-      document.getElementById('hero-cta').textContent = `Enter ${next.name.replace('Last Legs Standing ', '')}, ${money(next.fee_cents)}`;
-      document.getElementById('hero-cta').href = `/signup.html?event=${next.slug}`;
-      countdown(document.getElementById('home-countdown'), next.start_ms);
+    if (!next) return;
+    const $ = (id) => document.getElementById(id);
+    const season = next.name.replace('Last Legs Standing ', '');
+    $('rc-name').textContent = next.name;
+    $('rc-date').textContent = fmtDate(next.start_ms, 'UTC');
+    $('rc-local').textContent = `00:00 UTC · ${fmtLocal(next.start_ms)} your time`;
+    $('rc-fee').textContent = money(next.fee_cents);
+    countdown($('home-countdown'), next.start_ms);
+    if (config.registrationOpen) {
+      $('reg-status').textContent = `Registration open · Season ${season}`;
+      $('rc-badge').textContent = 'Registration open';
+      $('rc-badge').className = 'badge open';
+      $('hero-cta').textContent = `Enter ${season} · ${money(next.fee_cents)}`;
+      $('hero-cta').href = `/signup.html?event=${next.slug}`;
+    } else {
+      // Until card payments are live, the main button explains the race instead of leading to a closed form.
+      $('reg-status').textContent = `Season ${season} · Registration opens soon`;
+      $('rc-badge').textContent = 'Registration opens soon';
+      $('hero-cta').textContent = 'See how it works';
+      $('hero-cta').href = '#about';
+      $('hero-cta-2').textContent = 'Read the rules';
+      $('hero-cta-2').href = '#rules';
     }
   });
   api('/live').then((l) => {
