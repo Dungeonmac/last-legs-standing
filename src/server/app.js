@@ -117,12 +117,32 @@ route('GET', '/me', async ({ request, env }) => {
   });
 });
 
+// Password guessing protection: after too many wrong passwords from one device (IP) or for one account,
+// logins pause for 15 minutes.
+const LOGIN_WINDOW = '-15 minutes';
+const MAX_FAILS_PER_IP = 10;
+const MAX_FAILS_PER_EMAIL = 8;
+
 route('POST', '/auth/login', async ({ request, env }) => {
   const body = await readJson(request);
-  const u = await env.DB.prepare('SELECT * FROM users WHERE email = ?').bind(clean(body.email)).first();
+  const email = (clean(body.email, 200) || '').toLowerCase();
+  const ip = request.headers.get('cf-connecting-ip') || 'local';
+  const since = `strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '${LOGIN_WINDOW}')`;
+  const fails = await env.DB.prepare(
+    `SELECT SUM(ip = ?1) AS by_ip, SUM(email = ?2) AS by_email FROM login_failures WHERE at > ${since}`,
+  ).bind(ip, email).first();
+  if ((fails?.by_ip || 0) >= MAX_FAILS_PER_IP || (fails?.by_email || 0) >= MAX_FAILS_PER_EMAIL) {
+    throw new HttpError(429, 'Too many wrong passwords. For your security, wait 15 minutes and try again, or contact the help desk.');
+  }
+  const u = await env.DB.prepare('SELECT * FROM users WHERE email = ?').bind(email).first();
   if (!u || !(await verifyPassword(String(body.password || ''), u.password_hash, u.password_salt))) {
+    await env.DB.batch([
+      env.DB.prepare('INSERT INTO login_failures (ip, email) VALUES (?, ?)').bind(ip, email),
+      env.DB.prepare(`DELETE FROM login_failures WHERE at < strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-1 day')`),
+    ]);
     throw new HttpError(401, 'Email or password is incorrect.');
   }
+  await env.DB.prepare('DELETE FROM login_failures WHERE email = ?').bind(email).run();
   return json({ ok: true }, 200, { 'set-cookie': await createSession(env, u.id, request) });
 });
 

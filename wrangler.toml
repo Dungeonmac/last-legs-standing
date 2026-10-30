@@ -19,9 +19,7 @@ database_id = "ac770aa8-7398-41ae-9d5f-7e9ed52ac5da"
 
 [vars]
 SITE_NAME = "Last Legs Standing"
-# Comma-separated emails that get admin rights on the LIVE site.
-# Locally, .dev.vars overrides this with the demo admin (admin@lastlegsstanding.test).
-ADMIN_EMAILS = "jeffeersonjeff546@gmail.com"
+# Admins are set on the account itself: after someone signs up, run  npm run make-admin -- their@email.com
 # Help desk messages are forwarded here (once RESEND_API_KEY is set) and always kept in Admin.
 SUPPORT_EMAIL = "jeffeersonjeff546@gmail.com"
 # Secrets (set with `wrangler pages secret put NAME`, or in .dev.vars locally):

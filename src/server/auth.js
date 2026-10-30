@@ -59,8 +59,9 @@ export async function currentUser(request, env) {
       WHERE s.token = ? AND s.expires_at > ?`,
   ).bind(token, Date.now()).first();
   if (!row) return null;
-  const admins = (env.ADMIN_EMAILS || '').split(',').map((e) => e.trim().toLowerCase()).filter(Boolean);
-  row.isAdmin = row.role === 'admin' || admins.includes(row.email.toLowerCase());
+  // Admin rights live on the account itself (users.role), set with `npm run make-admin -- <email>`.
+  // Never grant admin by email address alone: emails aren't verified, so anyone could sign up with one.
+  row.isAdmin = row.role === 'admin';
   return row;
 }
 

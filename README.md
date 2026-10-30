@@ -56,7 +56,7 @@ Demo logins (local only):
 
 - https://last-legs-standing.pages.dev (Cloudflare Pages project `last-legs-standing`, D1 database `lls-db`)
 - Publish changes: `npm run deploy`. Reload the live demo data: `npm run db:prod-seed` (wipes the live database).
-- Live admins come from `ADMIN_EMAILS` in wrangler.toml. Locally, `.dev.vars` sets the demo admin.
+- Admins: after someone signs up on the live site, run `npm run make-admin -- their@email.com`. Admin is never granted by email address alone (emails aren’t verified).
 
 ## Going live (Cloudflare + GitHub)
 
@@ -74,7 +74,7 @@ Demo logins (local only):
    - `STRIPE_SECRET_KEY`, `STRIPE_PUBLISHABLE_KEY`: real card payments. Without them, sign-up runs in test mode.
    - `STRAVA_CLIENT_ID`, `STRAVA_CLIENT_SECRET`: from https://www.strava.com/settings/api. Set the callback domain to your domain.
    - `RESEND_API_KEY`: from https://resend.com (free). Emails every help desk message to `SUPPORT_EMAIL` (set in `wrangler.toml`). Sign up to Resend with that same email address, or verify your domain with Resend and set `EMAIL_FROM`. Without the key, messages are still saved and shown in Admin.
-   - Set `ADMIN_EMAILS` in `wrangler.toml` to your own email.
+   - Sign up on the live site, then run `npm run make-admin -- your@email.com`.
 6. Add your domain under Pages → Custom domains.
 
 ## Before launch: checklist

@@ -1,4 +1,5 @@
 -- Last Legs Standing database schema (Cloudflare D1 / SQLite)
+DROP TABLE IF EXISTS login_failures;
 DROP TABLE IF EXISTS support_messages;
 DROP TABLE IF EXISTS runs;
 DROP TABLE IF EXISTS registrations;
@@ -138,3 +139,12 @@ CREATE TABLE support_messages (
   created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 );
 CREATE INDEX support_created ON support_messages(created_at);
+
+-- Wrong-password attempts, for login rate limiting (kept for one day).
+CREATE TABLE login_failures (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  ip TEXT NOT NULL,
+  email TEXT NOT NULL,
+  at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+CREATE INDEX login_failures_at ON login_failures(at);
