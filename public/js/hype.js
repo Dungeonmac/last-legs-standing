@@ -2,10 +2,10 @@
 import { esc, fmtLocal } from './common.js';
 import { bibHTML } from './bib.js';
 
-// Each line's animation runs this long. It's fully readable for about 62% of that (the rest is the
-// slam-in and fade-out), so 2600 ms ≈ 1.6 s to read a short line and 3200 ms ≈ 2 s for a longer one.
-const SHORT = 2600;
-const LONG = 3200;
+// Each line's animation runs this long. It's fully readable for about 72% of that (the rest is the
+// slam-in and fade-out), so 2200 ms ≈ 1.6 s to read a short line and 2800 ms ≈ 2 s for a longer one.
+const SHORT = 2200;
+const LONG = 2800;
 
 /** Plays the sequence. Resolves when the runner taps through or skips. */
 export function playHype({ first = '', last = '', bib, event = 'Last Legs Standing', startMs } = {}) {
