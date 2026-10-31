@@ -27,8 +27,8 @@
         <h1 class="display">One more K.<br>Every day.<br><span class="accent">Until one is left.</span></h1>
         <p class="lead">Day 1 is 1 km. Day 2 is 2. Run it anywhere on Earth, upload before midnight UTC, and come back tomorrow for one more. Miss a day and you’re out. There is no finish line. The last runner standing wins.</p>
         <div class="row hero-ctas">
-          <a class="btn lg" href="#about" id="hero-cta">See how it works</a>
-          <a class="btn ghost lg" href="#rules" id="hero-cta-2">Read the rules</a>
+          <a class="btn xl" href="/signup.html" id="hero-cta">Sign up now</a>
+          <a class="btn ghost lg" href="#about" id="hero-cta-2">How it works</a>
         </div>
         <ul class="hero-trust">
           <li>Run anywhere</li><li>Any GPS watch or phone</li><li>Free built-in tracker</li><li>Awards in every age group</li>
@@ -238,14 +238,16 @@
       $('reg-status').textContent = `Registration open · Season ${season}`;
       $('rc-badge').textContent = 'Registration open';
       $('rc-badge').className = 'badge open';
-      $('hero-cta').textContent = `Enter ${season} · ${money(next.fee_cents)}`;
+      $('hero-cta').textContent = `Sign up now · ${money(next.fee_cents)}`;
       $('hero-cta').href = `/signup.html?event=${next.slug}`;
       $('hero-cta-2').textContent = 'How it works';
       $('hero-cta-2').href = '#about';
     } else {
-      // Until card payments are live, the main button explains the race instead of leading to a closed form.
+      // Race registration isn't open yet (card payments aren't live), so "Sign up now" creates an account
+      // and gets runners ready. Logged-in runners see the "opens soon" page instead.
       $('reg-status').textContent = `Season ${season} · Registration opens soon`;
       $('rc-badge').textContent = 'Registration opens soon';
+      $('hero-cta').href = me.user || config.accountsOpen === false ? '/signup.html' : '/login.html?next=/account.html#create';
     }
   }).catch(() => { /* keep the static fallback content */ });
   api('/live').then((l) => {
