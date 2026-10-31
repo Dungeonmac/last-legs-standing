@@ -31,7 +31,7 @@
   const $ = (id) => document.getElementById(id);
   $('hello').textContent = `Hi, ${d.user.first_name}`;
   api('/profile').then((p) => {
-    $('me-avatar').innerHTML = avatarHTML({ src: p.avatar, name: `${p.user.first_name} ${p.user.last_name}`, events: p.events_competed, award: bestAward(p.awards), size: 'sm' });
+    $('me-avatar').innerHTML = avatarHTML({ src: p.avatar, name: `${p.user.first_name} ${p.user.last_name}`, days: p.best_day, award: bestAward(p.awards), size: 'sm' });
   }).catch(() => {});
   const myBib = (eventName, bib, division) => bibHTML({ event: eventName, bib, name: `${d.user.first_name} ${(d.user.last_name || '')[0] || ''}.`, division });
   $('logout').addEventListener('click', async () => { await api('/auth/logout', { method: 'POST' }); location.href = '/'; });

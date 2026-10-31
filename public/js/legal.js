@@ -105,6 +105,9 @@ export const PRIVACY_HTML = `
   <li><b>Waiver record:</b> your typed signature, the time, the waiver version and your IP address.</li>
 </ul>
 
+<h3>Emails we send</h3>
+<p>When you create an account, you’re added to our runner email list for race news and reminders (for example registration opening, start dates and results). Every email has a one-click unsubscribe link, and you can turn race emails off from your profile at any time. Account and help desk emails (like replies to your questions) are always sent.</p>
+
 <h3>What’s public</h3>
 <p>Leaderboards and results show only your <b>first name, last initial, country, bib number, division (for example “Women 30–39”), status and race statistics</b>. Your route maps, email, phone, exact birth date and addresses are never public.</p>
 

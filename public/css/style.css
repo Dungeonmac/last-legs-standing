@@ -780,3 +780,17 @@ input, select, textarea { font-size: max(16px, 1em); }
 }
 .btn.xl:hover { box-shadow: 0 18px 48px #fc4c0288, inset 0 -3px 0 #0000002a; }
 @media (max-width: 600px) { .btn.xl { width: 100%; padding: 1.15rem 1.5rem; } }
+
+/* Immortal (Day 60+): twin counter-spinning halos (gold/white/violet) with a pulsing aura */
+.pf-immortal .pf-frame { padding: calc(var(--s) * .1); background: conic-gradient(from var(--pf-a, 0deg), #fff7d6, #e2be45, #a45cff, #ffffff, #e2be45, #7b3cff, #fff7d6); animation: pf-spin 2.4s linear infinite; }
+.pf-immortal .pf-halo {
+  position: absolute; z-index: 0; top: calc(var(--s) * -.14); left: 50%; width: calc(var(--s) * 1.28); height: calc(var(--s) * 1.28);
+  margin-left: calc(var(--s) * -.64); border-radius: 50%; pointer-events: none;
+  background: conic-gradient(from calc(0deg - var(--pf-a, 0deg)), transparent 0 10%, #e2be45cc 12%, transparent 16% 40%, #a45cffcc 42%, transparent 46% 70%, #ffffffcc 72%, transparent 76%);
+  -webkit-mask: radial-gradient(circle, transparent 60%, #000 61%, #000 66%, transparent 67%); mask: radial-gradient(circle, transparent 60%, #000 61%, #000 66%, transparent 67%);
+  animation: pf-spin 3.2s linear infinite reverse;
+}
+.pf-immortal .pf-frame { position: relative; z-index: 1; }
+.pf-immortal { filter: drop-shadow(0 0 calc(var(--s) * .14) #a45cffaa) drop-shadow(0 0 calc(var(--s) * .08) #e2be45cc); animation: pf-aura 2.2s ease-in-out infinite; }
+@keyframes pf-aura { 50% { filter: drop-shadow(0 0 calc(var(--s) * .24) #a45cffdd) drop-shadow(0 0 calc(var(--s) * .12) #fff3c4); } }
+@media (prefers-reduced-motion: reduce) { .pf-immortal, .pf-immortal .pf-frame, .pf-immortal .pf-halo { animation: none; } }

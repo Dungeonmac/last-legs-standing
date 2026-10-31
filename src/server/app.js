@@ -9,6 +9,7 @@ import {
   emailEnabled, sendEmail, stripeTestMode, sendToRunner, canEmailRunners,
 } from './integrations.js';
 import { registerAdminRoutes } from './admin.js';
+import { registerMailRoutes } from './mail.js';
 import { ageGroup, divisionLabel } from '../../public/js/divisions.js';
 
 export const WAIVER_VERSION = '2026-10-30.2';
@@ -622,13 +623,14 @@ const AVATAR_MAX_BYTES = 150 * 1024; // the browser resizes pictures to 320 px b
 route('GET', '/profile', async ({ request, env }) => {
   const user = await requireViewer(request, env);
   const p = await env.DB.prepare(
-    'SELECT avatar_updated, created_at, dob, gender, country, phone, emergency_name, emergency_phone FROM users WHERE id = ?',
+    'SELECT avatar_updated, created_at, dob, gender, country, phone, emergency_name, emergency_phone, email_opt_out FROM users WHERE id = ?',
   ).bind(user.id).first();
   const ship = await env.DB.prepare(`SELECT line1, line2, city, region, postal, country FROM addresses WHERE user_id = ? AND kind = 'shipping'`).bind(user.id).first();
   const { n: entered } = await env.DB.prepare('SELECT COUNT(*) AS n FROM registrations WHERE user_id = ?').bind(user.id).first();
   // Events competed in: races that have started (live or finished), not counting disqualifications.
   const { results: regs } = await env.DB.prepare(
-    `SELECT r.id, r.status, r.eliminated_day, e.id AS event_id, e.name, e.slug, e.status AS event_status, e.start_date
+    `SELECT r.id, r.status, r.eliminated_day, e.id AS event_id, e.name, e.slug, e.status AS event_status, e.start_date,
+            e.last_processed_day, e.ended_day
        FROM registrations r JOIN events e ON e.id = r.event_id
       WHERE r.user_id = ? AND e.status IN ('live', 'completed') AND (e.is_demo = 0 OR ?) ORDER BY e.start_date`,
   ).bind(user.id, user.demo ? 1 : 0).all();
@@ -645,10 +647,16 @@ route('GET', '/profile', async ({ request, env }) => {
       phone: p?.phone, emergency_name: p?.emergency_name, emergency_phone: p?.emergency_phone, shipping: ship || null,
       // Birth date and sex decide a runner's division, so they lock once the runner has entered a race.
       division_locked: entered > 0,
+      race_emails: !p?.email_opt_out,
     },
     isAdmin: !!user.isAdmin,
     avatar: p?.avatar_updated ? `/api/profile/avatar?v=${p.avatar_updated}` : null,
     events_competed: regs.filter((r) => r.status !== 'disqualified').length,
+    // Rank = the most race days survived in one race. Eliminated on Day N means N-1 days survived;
+    // still standing means every finished day so far; disqualified races don't count.
+    best_day: Math.max(0, ...regs.map((r) => (r.status === 'disqualified' ? 0
+      : r.eliminated_day ? r.eliminated_day - 1
+        : r.event_status === 'completed' ? r.ended_day || r.last_processed_day : r.last_processed_day))),
     events: regs.map((r) => ({ name: r.name, slug: r.slug, status: r.status, eliminated_day: r.eliminated_day, event_status: r.event_status })),
     awards,
   });
@@ -724,6 +732,9 @@ route('POST', '/profile/avatar', async ({ request, env }) => {
   await env.DB.prepare('UPDATE users SET avatar = ?, avatar_updated = ? WHERE id = ?').bind(image, v, user.id).run();
   return json({ ok: true, avatar: `/api/profile/avatar?v=${v}` });
 });
+
+// ---------------------------------------------------------------- email list (src/server/mail.js)
+registerMailRoutes(route, { json, HttpError, readJson, clean, requireAdmin, sendToRunner, canEmailRunners, requireViewer });
 
 // ---------------------------------------------------------------- admin (src/server/admin.js)
 registerAdminRoutes(route, {

@@ -198,7 +198,7 @@ regs.push({
 });
 
 // ----- SQL
-sql.push('DELETE FROM admin_log; DELETE FROM support_replies; DELETE FROM support_messages; DELETE FROM runs; DELETE FROM registrations; DELETE FROM addresses; DELETE FROM sessions; DELETE FROM strava_tokens; DELETE FROM events; DELETE FROM users;');
+sql.push('DELETE FROM mail_recipients; DELETE FROM mail_campaigns; DELETE FROM admin_log; DELETE FROM support_replies; DELETE FROM support_messages; DELETE FROM runs; DELETE FROM registrations; DELETE FROM addresses; DELETE FROM sessions; DELETE FROM strava_tokens; DELETE FROM events; DELETE FROM users;');
 for (const e of events) {
   sql.push(`INSERT INTO events (id, slug, name, tagline, description, start_date, status, fee_cents, prizes, registration_open, last_processed_day, ended_day, is_demo) VALUES (${[
     e.id, e.slug, e.name, e.tagline, e.description, e.start_date, e.status, 3000, JSON.stringify(e.prizes), e.registration_open, e.last_processed_day, e.ended_day, e.is_demo,

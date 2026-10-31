@@ -21,7 +21,7 @@
 </main>
 <script type="module">
   import { mountChrome, requireLogin, api, esc, demoOn, toast } from '/js/common.js';
-  import { RANKS, rankFor, nextRank, avatarHTML, bestAward } from '/js/ranks.js';
+  import { RANKS, rankFor, nextRank, rankRange, avatarHTML, bestAward } from '/js/ranks.js';
   await mountChrome();
   await requireLogin();
   const $ = (id) => document.getElementById(id);
@@ -39,11 +39,11 @@
 
   function topCard() {
     const name = `${p.user.first_name} ${p.user.last_name}`;
-    const realRank = rankFor(p.events_competed);
+    const realRank = rankFor(p.best_day);
     const rank = preview.rank ? RANKS.find((r) => r.key === preview.rank) : realRank;
     const [pl, cat] = preview.award.split('|');
     const award = preview.rank || preview.award ? (pl ? { place: +pl, category: cat } : null) : bestAward(p.awards);
-    const next = nextRank(p.events_competed);
+    const next = nextRank(p.best_day);
     return `
       <div class="card raise">
         <div class="row" style="gap:1.6rem;align-items:center">
@@ -51,9 +51,9 @@
           <div class="stack" style="flex:1;min-width:220px">
             <div><h2 style="margin:0">${esc(name)}</h2><p class="small muted" style="margin:.2rem 0 0">${esc(p.user.email)}</p></div>
             <div><span class="badge active">${esc(rank.name)}</span>
-              <span class="small ink2" style="margin-left:.4rem">${p.events_competed} race${p.events_competed === 1 ? '' : 's'} competed</span>
+              <span class="small ink2" style="margin-left:.4rem">Best race: ${p.best_day ? `survived ${p.best_day} day${p.best_day === 1 ? '' : 's'}` : 'no days survived yet'} · ${p.events_competed} race${p.events_competed === 1 ? '' : 's'}</span>
               ${preview.rank || preview.award ? '<span class="badge demo" style="margin-left:.4rem">Demo preview</span>' : ''}</div>
-            <p class="small ink2" style="margin:0">${next ? `Compete in <b>${next.min - p.events_competed} more race${next.min - p.events_competed === 1 ? '' : 's'}</b> to reach <b>${esc(next.name)}</b>.` : 'You’ve reached the highest rank. Legend.'}</p>
+            <p class="small ink2" style="margin:0">${next ? `Survive <b>${next.min === 1 ? 'Day 1' : `${next.min} days`}</b> in a race to reach <b>${esc(next.name)}</b>.` : 'You’ve reached the highest rank. Immortal.'}</p>
             <div class="row" style="gap:.6rem">
               <label class="btn sm" for="pic">${p.avatar ? 'Change picture' : 'Upload a picture'}</label>
               <input type="file" id="pic" accept="image/*" class="hidden">
@@ -101,6 +101,11 @@
         <div><button class="btn" type="submit">Save my details</button></div>
       </form>
 
+      <div class="card">
+        <h3 style="margin-top:0">Race emails</h3>
+        <label class="check"><input type="checkbox" id="race-emails" ${p.details.race_emails ? 'checked' : ''}> <span>Send me race news and reminders (start dates, registration opening, results). You can turn this off any time.</span></label>
+      </div>
+
       <form class="card stack" id="pw" novalidate>
         <h3 style="margin:0">Change password</h3>
         <div id="pw-msg"></div>
@@ -121,20 +126,20 @@
 
       <div class="card" id="how">
         <h3>How profile frames work</h3>
-        <p class="ink2">Your frame shows how experienced you are. It levels up every time you <b>compete in a race</b> (any race that has started; disqualifications don’t count). Each level has a fancier shape and color.</p>
+        <p class="ink2">Your frame shows how far you’ve gone. It’s set by your <b>best race</b>: the most days you’ve survived in a single race (disqualifications don’t count). Go deeper and the frame gets a fancier shape and color. Survive 60 days and you become <b>Immortal</b>.</p>
         <div class="rank-table">${RANKS.map((r) => `
-          <div class="tile ${r.key === rankFor(p.events_competed).key ? 'current' : ''}">
+          <div class="tile ${r.key === rankFor(p.best_day).key ? 'current' : ''}">
             ${avatarHTML({ name: r.name, rank: r, size: 'sm' })}
-            <div><b>${esc(r.name)}</b>${r.key === rankFor(p.events_competed).key ? ' <span class="badge active">You</span>' : ''}
-              <div class="small muted">${r.min === 0 ? 'No races yet' : r.min === 12 ? '12+ races' : `${r.min} race${r.min === 1 ? '' : 's'}`} · ${esc(r.look)}</div></div>
+            <div><b>${esc(r.name)}</b>${r.key === rankFor(p.best_day).key ? ' <span class="badge active">You</span>' : ''}
+              <div class="small muted">${rankRange(r)} · ${esc(r.look)}</div></div>
           </div>`).join('')}
         </div>
         <h3 style="margin-top:2rem">Award ribbons</h3>
         <p class="ink2">Finish in the top 3 of any award group and a medal ribbon is added to your frame: gold, silver or bronze, with your place and the group. If you have several awards, your best one is shown. Overall champions also get a crown.</p>
         <div class="rank-table">
-          ${avatarHTML({ name: 'Champion', events: 3, award: { place: 1, category: 'Overall' } })}
-          ${avatarHTML({ name: 'Second', events: 5, award: { place: 2, category: 'Women' } })}
-          ${avatarHTML({ name: 'Third', events: 1, award: { place: 3, category: 'Men 40–59' } })}
+          ${avatarHTML({ name: 'Champion', days: 64, award: { place: 1, category: 'Overall' } })}
+          ${avatarHTML({ name: 'Second', days: 41, award: { place: 2, category: 'Women' } })}
+          ${avatarHTML({ name: 'Third', days: 22, award: { place: 3, category: 'Men 40–59' } })}
         </div>
       </div>`;
     wire();
@@ -158,6 +163,12 @@
         render();
         toast('Your details are saved.');
       } catch (x) { $('d-msg').innerHTML = `<div class="alert error">${esc(x.message)}</div>`; }
+    });
+    $('race-emails').addEventListener('change', async (e) => {
+      try {
+        await api('/profile/email-pref', { json: { subscribed: e.target.checked } });
+        toast(e.target.checked ? 'You’ll get race emails.' : 'Race emails are off.');
+      } catch (x) { toast(x.message); e.target.checked = !e.target.checked; }
     });
     $('pw').addEventListener('submit', async (e) => {
       e.preventDefault();

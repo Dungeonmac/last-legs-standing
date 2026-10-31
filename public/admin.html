@@ -39,7 +39,7 @@
 
   const TABS = [
     ['overview', 'Overview'], ['events', 'Events'], ['tickets', 'Help tickets'], ['flags', 'Flagged runners'],
-    ['runs', 'Runners & runs'], ['admins', 'Admins'], ['demo', 'Demo mode'], ['log', 'Activity log'],
+    ['runs', 'Runners & runs'], ['mail', 'Email list'], ['admins', 'Admins'], ['demo', 'Demo mode'], ['log', 'Activity log'],
   ];
   let ov = null; // overview data, shared by tabs
   async function loadOverview() { ov = await api('/admin/overview'); return ov; }
@@ -357,7 +357,63 @@
         <td class="small" style="white-space:normal">${esc(l.target || '')}</td><td class="small" style="white-space:normal;min-width:200px">${esc(l.detail || '')}</td></tr>`).join('')}</tbody></table></div>` : '<div class="empty">Nothing yet.</div>'}</div>`;
   }
 
-  const VIEWS = { overview, events: () => events(), tickets, flags, runs, admins, demo, log };
+  // ------------------------------------------------------------ email list
+  let mailAud = 'all';
+  async function mail() {
+    const d = await api('/admin/mail');
+    const aud = d.audiences.find((a) => a.key === mailAud) || d.audiences[0];
+    const list = await api(`/admin/mail/list?aud=${encodeURIComponent(aud.key)}`);
+    const csv = toCsv([['Email', 'First name', 'Last name', 'Joined'], ...list.people.map((x) => [x.email, x.first_name, x.last_name, x.created_at])]);
+    panel.innerHTML = `
+      ${d.canSend ? '' : `<div class="alert warn small"><b>Sending is not switched on yet.</b> Emailing many runners needs an email-sending service. The simplest: upgrade Cloudflare to the Workers Paid plan ($5/month, includes Cloudflare Email Sending), then ask Claude to connect it. Until then you can still see the list, <b>download it</b> for a mailing tool like Mailchimp (free up to 500 contacts), or <b>copy the addresses</b> into the BCC field of an email.</div>`}
+      <div class="card">
+        <div class="row between"><h3 style="margin:0">Email list</h3><span class="small muted">${d.optedOut} unsubscribed</span></div>
+        <p class="small ink2">Every runner account joins automatically when it’s created. Admin accounts, demo accounts and anyone who unsubscribed are left out. Every email includes a one-click unsubscribe link.</p>
+        <div class="row" style="gap:.6rem">
+          <select id="m-aud" style="width:auto;padding:.5rem .7rem">${d.audiences.map((a) => `<option value="${esc(a.key)}" ${a.key === aud.key ? 'selected' : ''}>${esc(a.label)} (${a.count})</option>`).join('')}</select>
+          <a class="btn ghost sm" download="email-list.csv" href="data:text/csv;charset=utf-8,${encodeURIComponent(csv)}">Download CSV</a>
+          <button class="btn ghost sm" type="button" id="m-copy">Copy addresses</button>
+        </div>
+        <div class="table-wrap" style="margin-top:1rem;max-height:340px"><table><thead><tr><th>Runner</th><th>Email</th><th>Joined</th></tr></thead>
+          <tbody>${list.people.map((x) => `<tr><td>${esc(x.first_name)} ${esc(x.last_name)}</td><td>${esc(x.email)}</td><td class="small">${when(x.created_at)}</td></tr>`).join('') || '<tr><td colspan="3" class="muted">Nobody here yet.</td></tr>'}</tbody></table></div>
+      </div>
+      <form class="card stack" id="m-form">
+        <h3 style="margin:0">Write an email to: ${esc(aud.label)} (${aud.count})</h3>
+        <div class="field"><label for="m-subj">Subject</label><input id="m-subj" maxlength="200" placeholder="Registration opens Monday!"></div>
+        <div class="field"><label for="m-body">Message</label><textarea id="m-body" style="min-height:200px" placeholder="Hi {first_name},&#10;&#10;…"></textarea>
+          <span class="hint">Write <b>{first_name}</b> to greet each runner by name. The unsubscribe link is added automatically.</span></div>
+        <div id="m-progress"></div>
+        <div><button class="btn" type="submit" ${d.canSend && aud.count ? '' : 'disabled'}>Send to ${aud.count} runner${aud.count === 1 ? '' : 's'}</button></div>
+      </form>
+      <div class="card"><h3 style="margin-top:0">Sent emails</h3>
+        ${d.campaigns.length ? `<div class="table-wrap"><table><thead><tr><th>When</th><th>Subject</th><th>To</th><th class="r">Sent</th><th class="r">Failed</th><th>By</th></tr></thead><tbody>${d.campaigns.map((c) => `<tr>
+          <td class="small">${when(c.created_at)}</td><td><b>${esc(c.subject)}</b></td><td class="small">${esc(c.audience_label)}</td>
+          <td class="r num">${c.sent}/${c.total}</td><td class="r num">${c.failed}</td><td class="small">${esc(c.sent_by || '')}</td></tr>`).join('')}</tbody></table></div>` : '<p class="muted small" style="margin:0">Nothing sent yet.</p>'}
+      </div>`;
+    $('m-aud').addEventListener('change', (e) => { mailAud = e.target.value; mail(); });
+    $('m-copy').addEventListener('click', async () => {
+      await navigator.clipboard.writeText(list.people.map((x) => x.email).join(', '));
+      toast(`Copied ${list.people.length} addresses. Paste them into BCC so runners can't see each other's emails.`);
+    });
+    $('m-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const btn = e.target.querySelector('button[type=submit]');
+      if (!confirmTwice(btn, `Click again to send to ${aud.count}`)) return;
+      btn.disabled = true;
+      try {
+        const c = await api('/admin/mail/campaigns', { json: { subject: $('m-subj').value, body: $('m-body').value, audience: aud.key } });
+        let r = { remaining: c.total, sent: 0, failed: 0, total: c.total };
+        while (r.remaining > 0) {
+          r = await api(`/admin/mail/campaigns/${c.id}/send`, { method: 'POST' });
+          $('m-progress').innerHTML = `<div class="progress"><span style="width:${Math.round(((r.sent + r.failed) / r.total) * 100)}%"></span></div><p class="small ink2">Sent ${r.sent} of ${r.total}${r.failed ? ` · ${r.failed} failed` : ''}…</p>`;
+        }
+        toast(`Done: ${r.sent} sent${r.failed ? `, ${r.failed} failed` : ''}.`);
+        mail();
+      } catch (x) { toast(x.message); btn.disabled = false; }
+    });
+  }
+
+  const VIEWS = { overview, events: () => events(), tickets, flags, runs, mail, admins, demo, log };
 
   // ------------------------------------------------------------ shared click handling
   panel.addEventListener('click', async (e) => {

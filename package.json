@@ -13,7 +13,8 @@
     "db:prod-seed": "node scripts/seed.mjs --prod && wrangler d1 execute lls-db --remote --file schema.sql && wrangler d1 execute lls-db --remote --file scripts/seed-prod.sql",
     "sample-gpx": "node scripts/sample-gpx.mjs",
     "deploy": "wrangler pages deploy --project-name last-legs-standing --branch main",
-    "make-admin": "node scripts/make-admin.mjs"
+    "make-admin": "node scripts/make-admin.mjs",
+    "make-owner": "node scripts/make-owner.mjs"
   },
   "devDependencies": {
     "wrangler": "^4.156.0"

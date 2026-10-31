@@ -1,4 +1,6 @@
 -- Last Legs Standing database schema (Cloudflare D1 / SQLite)
+DROP TABLE IF EXISTS mail_recipients;
+DROP TABLE IF EXISTS mail_campaigns;
 DROP TABLE IF EXISTS admin_log;
 DROP TABLE IF EXISTS support_replies;
 DROP TABLE IF EXISTS login_failures;
@@ -27,6 +29,8 @@ CREATE TABLE users (
   role TEXT NOT NULL DEFAULT 'runner',          -- runner | admin | owner (owner needs a password to be removed)
   avatar TEXT,                                   -- profile picture as a small data URL
   avatar_updated INTEGER,
+  email_opt_out INTEGER NOT NULL DEFAULT 0,      -- 1 = unsubscribed from race emails
+  unsub_token TEXT,                              -- secret for the one-click unsubscribe link
   created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 );
 
@@ -183,3 +187,28 @@ CREATE TABLE admin_log (
 );
 CREATE INDEX admin_log_created ON admin_log(created_at);
 CREATE INDEX runs_status ON runs(status);
+
+-- Email list sends
+CREATE TABLE mail_campaigns (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  subject TEXT NOT NULL,
+  body TEXT NOT NULL,
+  audience TEXT NOT NULL,
+  audience_label TEXT,
+  created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  total INTEGER NOT NULL DEFAULT 0,
+  sent INTEGER NOT NULL DEFAULT 0,
+  failed INTEGER NOT NULL DEFAULT 0,
+  status TEXT NOT NULL DEFAULT 'sending'                               -- sending | done
+);
+CREATE TABLE mail_recipients (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  campaign_id INTEGER NOT NULL REFERENCES mail_campaigns(id) ON DELETE CASCADE,
+  user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  email TEXT NOT NULL,
+  first_name TEXT,
+  status TEXT NOT NULL DEFAULT 'queued',                                -- queued | sent | failed
+  error TEXT
+);
+CREATE INDEX mail_recipients_queue ON mail_recipients(campaign_id, status);
