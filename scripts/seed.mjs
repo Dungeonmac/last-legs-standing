@@ -142,7 +142,7 @@ const events = [
 const admin = await hash('AdminDemo2026!');
 const runner = await hash('RunDemo2026!');
 const PROD = process.argv.includes('--prod');
-const adminId = PROD ? null : addUser({ email: 'admin@lastlegsstanding.test', first_name: 'Race', last_name: 'Director', country: 'United States', role: 'admin', password_hash: admin.hash, password_salt: admin.salt });
+const adminId = PROD ? null : addUser({ email: 'admin@lastlegsstanding.test', first_name: 'Race', last_name: 'Director', country: 'United States', role: 'owner', password_hash: admin.hash, password_salt: admin.salt });
 const testId = addUser({ email: 'runner@lastlegsstanding.test', first_name: 'Test', last_name: 'Runner', country: 'United States', password_hash: PROD ? '!' : runner.hash, password_salt: PROD ? '!' : runner.salt, dob: '1992-05-14', gender: 'Male' });
 const paid = await hash('PaidDemo2026!');
 const paidId = addUser({ email: 'paid@lastlegsstanding.test', first_name: 'Jordan', last_name: 'Rivera', country: 'United States', password_hash: PROD ? '!' : paid.hash, password_salt: PROD ? '!' : paid.salt, dob: '1995-08-21', gender: 'Female' });
@@ -198,7 +198,7 @@ regs.push({
 });
 
 // ----- SQL
-sql.push('DELETE FROM support_messages; DELETE FROM runs; DELETE FROM registrations; DELETE FROM addresses; DELETE FROM sessions; DELETE FROM strava_tokens; DELETE FROM events; DELETE FROM users;');
+sql.push('DELETE FROM admin_log; DELETE FROM support_replies; DELETE FROM support_messages; DELETE FROM runs; DELETE FROM registrations; DELETE FROM addresses; DELETE FROM sessions; DELETE FROM strava_tokens; DELETE FROM events; DELETE FROM users;');
 for (const e of events) {
   sql.push(`INSERT INTO events (id, slug, name, tagline, description, start_date, status, fee_cents, prizes, registration_open, last_processed_day, ended_day, is_demo) VALUES (${[
     e.id, e.slug, e.name, e.tagline, e.description, e.start_date, e.status, 3000, JSON.stringify(e.prizes), e.registration_open, e.last_processed_day, e.ended_day, e.is_demo,

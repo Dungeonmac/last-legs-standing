@@ -17,113 +17,107 @@
     <div class="eyebrow">Race officials</div>
     <h1 class="display" style="font-size:clamp(2.4rem,6vw,4rem)">Admin</h1>
   </div></section>
-  <section class="section" style="padding-top:2.5rem"><div class="wrap stack" id="content"><span class="spinner"></span></div></section>
-
-  <dialog id="run-dialog"><div class="modal-head"><h2>Run review</h2><button class="close-x" onclick="this.closest('dialog').close()" aria-label="Close">×</button></div>
+  <section class="section" style="padding-top:2rem"><div class="wrap">
+    <div class="admin-tabs" role="tablist" id="tabs"></div>
+    <div id="panel" class="stack"><span class="spinner"></span></div>
+  </div></section>
+  <dialog id="run-dialog"><div class="modal-head"><h2>Run</h2><button class="close-x" type="button" aria-label="Close">×</button></div>
     <div class="modal-body" id="run-body"></div></dialog>
 </main>
 <script type="module">
-  import { mountChrome, requireLogin, api, fmtLocal, fmtDate, esc, dist, pace, duration, money, toast } from '/js/common.js';
+  import { mountChrome, requireLogin, api, demoHeaders, demoOn, setDemo, DEMO_AS, fmtLocal, fmtDate, esc, dist, pace, duration, money, toast } from '/js/common.js';
   import { drawTrack } from '/js/map.js';
+  import { playHype } from '/js/hype.js';
   await mountChrome();
   const me = await requireLogin();
   const $ = (id) => document.getElementById(id);
-  if (!me.user.isAdmin) { $('content').innerHTML = '<div class="empty">Admins only.</div>'; throw new Error('not admin'); }
+  const panel = $('panel');
+  const when = (iso) => (iso ? fmtLocal(Date.parse(iso)) : '—');
+  const fail = (x) => { panel.innerHTML = `<div class="alert error">${esc(x.message || x)}</div>`; };
+  if (!me.user.isAdmin) { panel.innerHTML = '<div class="empty">Admins only.</div>'; throw new Error('not admin'); }
+  $('run-dialog').querySelector('.close-x').addEventListener('click', () => $('run-dialog').close());
 
-  async function load() {
-    const d = await api('/admin/overview');
+  const TABS = [
+    ['overview', 'Overview'], ['events', 'Events'], ['tickets', 'Help tickets'], ['flags', 'Flagged runners'],
+    ['runs', 'Runners & runs'], ['admins', 'Admins'], ['demo', 'Demo mode'], ['log', 'Activity log'],
+  ];
+  let ov = null; // overview data, shared by tabs
+  async function loadOverview() { ov = await api('/admin/overview'); return ov; }
+
+  function drawTabs(active) {
+    const badge = (k) => (k === 'tickets' && ov?.counts.open_tickets ? ov.counts.open_tickets : k === 'flags' && ov?.counts.flagged_runs ? ov.counts.flagged_runs : 0);
+    $('tabs').innerHTML = TABS.map(([k, l]) => `<button role="tab" data-tab="${k}" aria-selected="${k === active}">${l}${badge(k) ? `<span class="count">${badge(k)}</span>` : ''}</button>`).join('');
+  }
+  $('tabs').addEventListener('click', (e) => { const b = e.target.closest('[data-tab]'); if (b) location.hash = b.dataset.tab; });
+  window.addEventListener('hashchange', show);
+
+  async function show() {
+    const tab = TABS.some(([k]) => k === location.hash.slice(1)) ? location.hash.slice(1) : 'overview';
+    drawTabs(tab);
+    panel.innerHTML = '<span class="spinner"></span>';
+    try {
+      if (!ov) await loadOverview();
+      drawTabs(tab);
+      await VIEWS[tab]();
+    } catch (x) { fail(x); }
+  }
+
+  // ------------------------------------------------------------ overview
+  async function overview() {
+    await loadOverview();
+    const c = ov.counts;
     const pct = (a, b) => (b ? Math.round((a / b) * 100) : 0);
-    $('content').innerHTML = `
+    panel.innerHTML = `
+      ${demoOn() ? '<div class="demo-banner" style="margin:0">Demo mode is on: demo races and runners are included below.</div>' : ''}
+      <div class="grid g4">
+        <div class="tile"><div class="label">Accounts</div><div class="value">${c.accounts}</div></div>
+        <div class="tile"><div class="label">Open help tickets</div><div class="value ${c.open_tickets ? 'accent' : ''}">${c.open_tickets}</div><div class="sub"><a href="#tickets">Answer them →</a></div></div>
+        <div class="tile"><div class="label">Runs flagged for review</div><div class="value ${c.flagged_runs ? 'accent' : ''}">${c.flagged_runs}</div><div class="sub"><a href="#flags">Review →</a></div></div>
+        <div class="tile"><div class="label">Admins</div><div class="value">${c.admins}</div><div class="sub"><a href="#admins">Manage →</a></div></div>
+      </div>
       <div class="card">
-        <h3>Sign-ups: first-time vs returning</h3>
-        <div class="table-wrap"><table>
+        <div class="row between"><h3 style="margin:0">Events</h3><a class="btn sm" href="#events">Create or edit events</a></div>
+        <div class="table-wrap" style="margin-top:1rem"><table>
           <thead><tr><th>Event</th><th>Status</th><th class="r">Registered</th><th class="r">First time</th><th class="r">Returning</th><th class="r">Still active</th><th class="r">DQ</th><th class="r">Revenue</th><th></th></tr></thead>
-          <tbody>${d.events.map((e) => { const s = e.stats; return `<tr>
+          <tbody>${ov.events.map((e) => { const s = e.numbers; return `<tr>
             <td><b>${esc(e.name)}</b>${e.is_demo ? ' <span class="badge demo">demo</span>' : ''}<div class="small muted">${fmtDate(e.start_ms, 'UTC')}</div></td>
             <td><span class="badge ${e.status}">${e.status}</span></td>
             <td class="r num">${s.total || 0}</td>
             <td class="r num">${s.first_timers || 0} <span class="muted">(${pct(s.first_timers, s.total)}%)</span></td>
             <td class="r num">${s.returners || 0} <span class="muted">(${pct(s.returners, s.total)}%)</span></td>
-            <td class="r num">${s.active ?? '–'}</td><td class="r num">${s.dq || 0}</td>
-            <td class="r num">${money(s.revenue_cents || 0)}</td>
+            <td class="r num">${s.active ?? '–'}</td><td class="r num">${s.dq || 0}</td><td class="r num">${money(s.revenue_cents || 0)}</td>
             <td><div class="row" style="gap:.4rem;flex-wrap:nowrap"><button class="btn ghost sm" data-runners="${e.slug}">Runners</button><button class="btn ghost sm" data-awards="${e.slug}">Awards</button></div></td></tr>`; }).join('')}</tbody></table></div>
       </div>
-
-      <div class="card">
-        <div class="row between"><h3 style="margin:0">Review queue</h3><span class="muted small">${d.queue.length} run(s) flagged or auto-rejected</span></div>
-        <p class="small ink2">Flagged runs count provisionally until reviewed. Approving or rejecting a run on a day that has already been processed automatically eliminates or reinstates the runner.</p>
-        ${d.queue.length ? `<div class="table-wrap"><table>
-          <thead><tr><th>Runner</th><th>Event / day</th><th class="r">Distance</th><th class="r">Pace</th><th class="r">Max</th><th>Risk</th><th>Why</th><th></th></tr></thead>
-          <tbody>${d.queue.map((q) => `<tr>
-            <td><b>${esc(q.runner)}</b><div class="small muted">#${q.bib} · ${esc(q.email)}</div></td>
-            <td>${esc(q.event_name)}<div class="small muted">Day ${q.race_day} · ${q.source}</div></td>
-            <td class="r num">${dist(q.distance_m, 2)}</td><td class="r num">${pace(q.moving_s, q.distance_m)}</td><td class="r num">${q.max_speed_kmh} km/h</td>
-            <td><span class="badge ${q.status}">${q.status} ${q.risk_score}</span></td>
-            <td class="small" style="white-space:normal;min-width:240px">${q.flags.map((f) => `<div><b>${f.code}</b> ${esc(f.detail)}</div>`).join('')}</td>
-            <td><div class="row" style="gap:.4rem;flex-wrap:nowrap">
-              <button class="btn ghost sm" data-view="${q.id}">Map</button>
-              <button class="btn good sm" data-review="${q.id}" data-action="approve">Approve</button>
-              <button class="btn danger sm" data-review="${q.id}" data-action="reject">Reject</button></div></td></tr>`).join('')}</tbody></table></div>`
-          : '<div class="empty">Nothing to review. 🎉</div>'}
-      </div>
-      <div id="support"></div>
-      <div id="runners"></div>`;
-    loadSupport();
-  }
-
-  async function loadSupport() {
-    const s = await api('/admin/support');
-    const open = s.messages.filter((m) => m.status === 'open').length;
-    $('support').innerHTML = `<div class="card">
-      <div class="row between"><h3 style="margin:0">Help desk inbox</h3><span class="muted small">${open} open · ${s.messages.length} total</span></div>
-      <p class="small ink2">${s.emailEnabled
-        ? `New messages are also emailed to <b>${esc(s.supportEmail)}</b>.`
-        : `Messages are saved here. They’re not emailed yet: set <code>RESEND_API_KEY</code> to forward them to <b>${esc(s.supportEmail || 'SUPPORT_EMAIL')}</b>.`}</p>
-      ${s.messages.length ? `<div class="stack">${s.messages.map((m) => `
-        <div class="tile" style="${m.status === 'closed' ? 'opacity:.55' : ''}">
-          <div class="row between"><div><b>#${m.id} · ${esc(m.topic)}</b> <span class="badge ${m.status === 'open' ? 'flagged' : 'completed'}">${m.status}</span>${m.emailed ? ' <span class="badge approved">emailed</span>' : ''}</div>
-            <span class="small muted">${fmtLocal(Date.parse(m.created_at))}</span></div>
-          <div class="small" style="margin:.3rem 0"><b>${esc(m.name)}</b> · <a href="mailto:${esc(m.email)}?subject=${encodeURIComponent(`Re: [Help #${m.id}] ${m.topic}`)}">${esc(m.email)}</a>${m.bib ? ` · Bib #${esc(m.bib)}` : ''}</div>
-          <p class="ink2" style="white-space:pre-wrap;margin:.4rem 0">${esc(m.message)}</p>
-          <button class="btn ghost sm" data-support="${m.id}" data-status="${m.status === 'open' ? 'closed' : 'open'}">${m.status === 'open' ? 'Mark as done' : 'Reopen'}</button>
-        </div>`).join('')}</div>` : '<div class="empty">No messages yet.</div>'}
-    </div>`;
+      <div id="sub"></div>`;
   }
 
   async function showRunners(slug) {
     const d = await api(`/admin/events/${slug}/registrations`);
-    $('runners').innerHTML = `<div class="card">
-      <div class="row between"><h3 style="margin:0">${esc(d.event.name)}: runners</h3><input id="rq" placeholder="Search" style="max-width:220px;padding:.5rem .7rem"></div>
+    const csv = toCsv([['Bib', 'Name', 'Email', 'Phone', 'Division', 'Status', 'First time', 'Shirt', 'Payment', 'Guardian', 'Guardian email', 'Guardian phone'],
+      ...d.registrations.map((r) => [r.bib, r.full_name, r.email, r.phone, r.division, r.status, r.first_time ? 'yes' : 'no', r.shirt_size, r.payment_status, r.guardian_name, r.guardian_email, r.guardian_phone])]);
+    $('sub').innerHTML = `<div class="card">
+      <div class="row between"><h3 style="margin:0">${esc(d.event.name)}: runners</h3>
+        <div class="row" style="gap:.5rem"><input id="rq" placeholder="Search" style="max-width:200px;padding:.45rem .7rem"><a class="btn ghost sm" download="${slug}-runners.csv" href="data:text/csv;charset=utf-8,${encodeURIComponent(csv)}">Download CSV</a></div></div>
       <div class="table-wrap" style="margin-top:1rem;max-height:600px"><table>
-        <thead><tr><th>Bib</th><th>Runner</th><th>Email</th><th>First time?</th><th>Shirt</th><th>Status</th><th class="r">Total</th><th></th></tr></thead>
+        <thead><tr><th>Bib</th><th>Runner</th><th>Division</th><th>Status</th><th class="r">Total</th><th></th></tr></thead>
         <tbody id="rt"></tbody></table></div></div>`;
     const draw = (q = '') => {
       $('rt').innerHTML = d.registrations.filter((r) => !q || `${r.full_name} ${r.email} ${r.bib}`.toLowerCase().includes(q.toLowerCase())).slice(0, 400).map((r) => `<tr>
-        <td>${r.bib}</td><td><b>${esc(r.full_name)}</b><div class="small muted">${esc(r.country || '')}</div></td><td class="small">${esc(r.email)}</td>
-        <td>${r.first_time ? 'First time' : 'Returning'}</td><td>${esc(r.shirt_size || '')}</td>
+        <td>${r.bib}</td><td><b>${esc(r.full_name)}</b><div class="small muted">${esc(r.email || '')}</div></td><td><span class="division-tag">${esc(r.division || '—')}</span></td>
         <td><span class="badge ${r.status}">${r.status}</span><div class="small muted" style="white-space:normal;max-width:240px">${esc(r.status_reason || '')}</div></td>
-        <td class="r num">${dist(r.distance_m)}</td>
-        <td>${r.status === 'disqualified' || r.status === 'eliminated'
-          ? `<button class="btn good sm" data-reg="${r.id}" data-act="reinstate">Reinstate</button>`
-          : `<button class="btn danger sm" data-reg="${r.id}" data-act="disqualify">Disqualify</button>`}</td></tr>`).join('');
+        <td class="r num">${dist(r.distance_m)}</td><td><button class="btn ghost sm" data-reg="${r.id}">Review</button></td></tr>`).join('');
     };
     draw();
     $('rq').addEventListener('input', (e) => draw(e.target.value));
-    currentSlug = slug;
-    $('runners').scrollIntoView({ behavior: 'smooth' });
+    $('sub').scrollIntoView({ behavior: 'smooth' });
   }
-  let currentSlug = null;
 
-  // Award winners and where to ship their shirt + medal (only award winners get them).
   async function showAwards(slug) {
     const d = await api(`/admin/events/${slug}/awards`);
     const lines = d.awards.flatMap((c) => c.winners.map((w) => ({ ...w, category: c.title })));
     const addr = (w) => [w.line1, w.line2, w.city, w.region, w.postal, w.ship_country].filter(Boolean).join(', ');
-    const csv = [['Award', 'Place', 'Name', 'Email', 'Phone', 'Shirt', 'Address'],
-      ...lines.map((w) => [w.category, w.award_place, w.full_name, w.email, w.phone, w.shirt_size, addr(w)])]
-      .map((r) => r.map((v) => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')).join('
-');
-    $('runners').innerHTML = `<div class="card">
+    const csv = toCsv([['Award', 'Place', 'Name', 'Email', 'Phone', 'Shirt', 'Address'], ...lines.map((w) => [w.category, w.award_place, w.full_name, w.email, w.phone, w.shirt_size, addr(w)])]);
+    $('sub').innerHTML = `<div class="card">
       <div class="row between"><h3 style="margin:0">${esc(d.event.name)}: award winners &amp; shipping</h3>
         <a class="btn ghost sm" download="${slug}-awards.csv" href="data:text/csv;charset=utf-8,${encodeURIComponent(csv)}">Download CSV</a></div>
       <p class="small ink2">${d.final ? 'Final results. Ship a shirt and medal to each runner below.' : 'The race isn’t finished, so these are the current leaders, not final winners.'} ${lines.length} awards.</p>
@@ -132,43 +126,315 @@
         <tbody>${lines.map((w) => `<tr><td><span class="place p${w.award_place}">${w.award_place}</span> ${esc(w.category)}</td>
           <td><b>${esc(w.full_name || w.name)}</b><div class="small muted">${esc(w.email || '')}</div></td><td>${esc(w.shirt_size || '—')}</td>
           <td class="small" style="white-space:normal;min-width:220px">${esc(addr(w) || 'No address on file')}</td></tr>`).join('')}</tbody></table></div></div>`;
-    $('runners').scrollIntoView({ behavior: 'smooth' });
+    $('sub').scrollIntoView({ behavior: 'smooth' });
+  }
+  const toCsv = (rows) => rows.map((r) => r.map((v) => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')).join('\r\n');
+
+  // ------------------------------------------------------------ events
+  async function events(editSlug = null) {
+    await loadOverview();
+    const ev = editSlug ? ov.events.find((e) => e.slug === editSlug) : null;
+    const tracked = ev?.stats_tracked || ov.statOptions.map(([k]) => k);
+    const prize = (i) => esc(ev?.prizes?.[i]?.prize && ev.prizes[i].prize !== 'To be announced' ? ev.prizes[i].prize : '');
+    panel.innerHTML = `
+      <div class="card">
+        <h3 style="margin-top:0">Events</h3>
+        <div class="table-wrap"><table><thead><tr><th>Event</th><th>Day 1</th><th>Status</th><th>Registration</th><th></th></tr></thead>
+          <tbody>${ov.events.map((e) => `<tr><td><b>${esc(e.name)}</b>${e.is_demo ? ' <span class="badge demo">demo</span>' : ''}<div class="small muted">/${esc(e.slug)}</div></td>
+            <td>${fmtDate(e.start_ms, 'UTC')}</td><td><span class="badge ${e.status}">${e.status}</span></td><td>${e.registration_open ? 'Open' : 'Closed'}</td>
+            <td><div class="row" style="gap:.4rem;flex-wrap:nowrap">${e.is_demo ? '' : `<button class="btn ghost sm" data-edit="${e.slug}">Edit</button>`}<a class="btn ghost sm" href="/event.html?e=${e.slug}" target="_blank">View</a>
+            ${!e.is_demo && !e.numbers.total ? `<button class="btn danger sm" data-del-event="${e.slug}">Delete</button>` : ''}</div></td></tr>`).join('')}</tbody></table></div>
+      </div>
+      <form class="card stack" id="ev-form" novalidate>
+        <div class="row between"><h3 style="margin:0">${ev ? `Edit: ${esc(ev.name)}` : 'Create a new event'}</h3>${ev ? '<button class="btn ghost sm" type="button" id="new-ev">+ New event instead</button>' : ''}</div>
+        <div id="ev-err" class="alert error hidden"></div>
+        <div class="form-grid">
+          <div class="field c4"><label class="req" for="f-name">Event name</label><input id="f-name" maxlength="120" value="${esc(ev?.name || '')}" placeholder="Last Legs Standing 2028"></div>
+          <div class="field c2"><label for="f-slug">Web address</label><input id="f-slug" maxlength="60" value="${esc(ev?.slug || '')}" ${ev ? 'disabled' : ''} placeholder="made from the name"><span class="hint">lastlegstanding.com/event.html?e=…</span></div>
+          <div class="field"><label for="f-tag">Tagline</label><input id="f-tag" maxlength="200" value="${esc(ev?.tagline || '')}" placeholder="One short line under the name"></div>
+          <div class="field"><label for="f-desc">Description</label><textarea id="f-desc" maxlength="4000" style="min-height:110px">${esc(ev?.description || '')}</textarea></div>
+          <div class="field c2"><label class="req" for="f-start">Day 1 (UTC date)</label><input id="f-start" type="date" value="${esc(ev?.start_date || '')}" ${ev && ev.status !== 'upcoming' ? 'disabled' : ''}>${ev && ev.status !== 'upcoming' ? '<span class="hint">Can’t change once the race has started.</span>' : ''}</div>
+          <div class="field c2"><label class="req" for="f-fee">Entry fee (USD)</label><input id="f-fee" type="number" min="0" step="1" value="${ev ? ev.fee_cents / 100 : 30}"></div>
+          <div class="field c2"><label for="f-open">Registration</label><select id="f-open"><option value="1" ${!ev || ev.registration_open ? 'selected' : ''}>Open (when race sign-up is on)</option><option value="0" ${ev && !ev.registration_open ? 'selected' : ''}>Closed</option></select></div>
+          <div class="field c2"><label for="f-p1">1st place prize</label><input id="f-p1" maxlength="200" value="${prize(0)}" placeholder="To be announced"></div>
+          <div class="field c2"><label for="f-p2">2nd place prize</label><input id="f-p2" maxlength="200" value="${prize(1)}" placeholder="To be announced"></div>
+          <div class="field c2"><label for="f-p3">3rd place prize</label><input id="f-p3" maxlength="200" value="${prize(2)}" placeholder="To be announced"></div>
+        </div>
+        <div><h3 style="margin:.5rem 0">Statistics this event shows</h3>
+          <p class="small ink2" style="margin-top:0">Choose what appears on the live race page and the results page. The race itself works the same either way.</p>
+          <div class="stat-picks">${ov.statOptions.map(([k, label, desc]) => `<label><input type="checkbox" name="stat" value="${k}" ${tracked.includes(k) ? 'checked' : ''}><span><b>${esc(label)}</b><br><span class="small muted">${esc(desc)}</span></span></label>`).join('')}</div>
+        </div>
+        <div class="row"><button class="btn" type="submit">${ev ? 'Save changes' : 'Create event'}</button>${ev ? '<button class="btn ghost" type="button" id="cancel-ev">Cancel</button>' : ''}</div>
+      </form>`;
+    $('new-ev')?.addEventListener('click', () => events());
+    $('cancel-ev')?.addEventListener('click', () => events());
+    $('ev-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const body = {
+        name: $('f-name').value, slug: $('f-slug').value, tagline: $('f-tag').value, description: $('f-desc').value,
+        start_date: $('f-start').value || ev?.start_date, fee: $('f-fee').value, registration_open: $('f-open').value === '1',
+        prizes: [$('f-p1').value, $('f-p2').value, $('f-p3').value],
+        stats: [...document.querySelectorAll('input[name=stat]:checked')].map((i) => i.value),
+      };
+      try {
+        await api(ev ? `/admin/events/${ev.slug}` : '/admin/events', { json: body });
+        toast(ev ? 'Event saved.' : 'Event created.');
+        events();
+      } catch (x) { $('ev-err').textContent = x.message; $('ev-err').classList.remove('hidden'); }
+    });
   }
 
-  $('content').addEventListener('click', async (e) => {
-    const sup = e.target.closest('[data-support]');
-    if (sup) {
-      await api(`/admin/support/${sup.dataset.support}`, { json: { status: sup.dataset.status } });
-      return loadSupport();
-    }
-    const reg = e.target.closest('[data-reg]');
-    if (reg) {
-      let reason = '';
-      if (reg.dataset.act === 'disqualify') {
-        reason = window.prompt('Reason for disqualification (shown to the runner):');
-        if (!reason) return;
+  // ------------------------------------------------------------ help tickets
+  let ticketStatus = 'open';
+  async function tickets() {
+    const d = await api(`/admin/support?status=${ticketStatus}`);
+    panel.innerHTML = `
+      <div class="row between"><div class="tabs" style="margin:0">
+        <button type="button" data-ts="open" aria-selected="${ticketStatus === 'open'}">Open (${d.openCount})</button>
+        <button type="button" data-ts="closed" aria-selected="${ticketStatus === 'closed'}">Closed</button></div></div>
+      ${d.emailRunners ? '' : `<div class="alert warn small">Replies are saved here, but the site can’t email them to runners yet. Sending email to any address needs Cloudflare’s Workers Paid plan ($5/month). Until then, each reply has an <b>Open in my email</b> button that fills in the email for you.</div>`}
+      ${d.messages.length ? d.messages.map((m) => `
+        <div class="ticket" data-ticket="${m.id}">
+          <div class="row between"><div><b>#${m.id} · ${esc(m.topic)}</b> <span class="badge ${m.status === 'open' ? 'flagged' : 'completed'}">${m.status}</span></div><span class="small muted">${when(m.created_at)}</span></div>
+          <div class="small" style="margin-top:.3rem"><b>${esc(m.name)}</b> · ${esc(m.email)}${m.bib ? ` · Bib #${esc(m.bib)}` : ''}</div>
+          <div class="msg">${esc(m.message)}</div>
+          ${m.replies.map((r) => `<div class="reply"><span class="small muted">${esc(r.admin_name || 'Admin')} · ${when(r.created_at)} · ${r.emailed ? 'emailed' : 'not emailed'}</span><br>${esc(r.body)}</div>`).join('')}
+          <textarea placeholder="Write your reply to ${esc(m.name)}…" style="min-height:90px;margin-top:.5rem"></textarea>
+          <div class="row" style="margin-top:.6rem;gap:.5rem">
+            <button class="btn sm" data-reply="${m.id}" data-close="1">${d.emailRunners ? 'Send reply & close' : 'Save reply & close'}</button>
+            <button class="btn ghost sm" data-reply="${m.id}">${d.emailRunners ? 'Send reply' : 'Save reply'}</button>
+            ${d.emailRunners ? '' : `<a class="btn ghost sm" data-mailto="${m.id}" href="#">Open in my email</a>`}
+            <button class="btn ghost sm" data-status="${m.status === 'open' ? 'closed' : 'open'}" data-tid="${m.id}" style="margin-left:auto">${m.status === 'open' ? 'Close without reply' : 'Reopen'}</button>
+          </div>
+        </div>`).join('') : `<div class="empty">No ${ticketStatus} tickets.</div>`}`;
+    panel.querySelectorAll('[data-ts]').forEach((b) => b.addEventListener('click', () => { ticketStatus = b.dataset.ts; tickets(); }));
+    panel.querySelectorAll('[data-mailto]').forEach((a) => a.addEventListener('click', (e) => {
+      const m = d.messages.find((x) => x.id === +a.dataset.mailto);
+      const body = a.closest('.ticket').querySelector('textarea').value;
+      a.href = `mailto:${encodeURIComponent(m.email)}?subject=${encodeURIComponent(`Re: [Help #${m.id}] ${m.topic}`)}&body=${encodeURIComponent(`${body}\n\n— Last Legs Standing help desk`)}`;
+    }));
+  }
+
+  // ------------------------------------------------------------ flagged runners
+  async function flags() {
+    const d = await api('/admin/flags');
+    panel.innerHTML = `
+      <div class="card">
+        <h3 style="margin-top:0">Flagged runners</h3>
+        <p class="small ink2">Runners with runs flagged by the anti-cheat checks, rejected runs, or a disqualification. <b>Clear</b> approves their flagged runs. <b>Disqualify</b> removes them from the race (they see your reason). <b>Forgive</b> undoes a disqualification if you change your mind. Every finished day is re-checked fairly either way.</p>
+        ${d.flags.length ? `<div class="table-wrap"><table>
+          <thead><tr><th>Runner</th><th>Event</th><th>Status</th><th class="r">Flagged</th><th class="r">Rejected</th><th class="r">Max risk</th><th></th></tr></thead>
+          <tbody>${d.flags.map((f) => `<tr>
+            <td><b>${esc(f.full_name)}</b><div class="small muted">Bib #${f.bib} · ${esc(f.email)}</div></td>
+            <td>${esc(f.event_name)}${f.is_demo ? ' <span class="badge demo">demo</span>' : ''}</td>
+            <td><span class="badge ${f.status}">${f.status}</span>${f.cleared_at ? ' <span class="badge approved">cleared</span>' : ''}<div class="small muted" style="white-space:normal;max-width:220px">${esc(f.status_reason || '')}</div></td>
+            <td class="r num">${f.flagged}</td><td class="r num">${f.rejected}</td><td class="r num">${f.max_risk ?? '–'}</td>
+            <td><button class="btn sm" data-reg="${f.id}">Review</button></td></tr>`).join('')}</tbody></table></div>` : '<div class="empty">Nothing to review. 🎉</div>'}
+      </div>
+      <div id="sub"></div>`;
+  }
+
+  async function reviewRegistration(id) {
+    const d = await api(`/admin/registrations/${id}`);
+    const r = d.registration;
+    const target = $('sub') || panel;
+    target.innerHTML = `<div class="card" id="review">
+      <div class="row between"><h3 style="margin:0">${esc(r.full_name)} · Bib #${r.bib} · ${esc(r.event_name)}</h3><span class="badge ${r.status}">${r.status}</span></div>
+      ${r.status_reason ? `<p class="small ink2">${esc(r.status_reason)}</p>` : ''}
+      <div class="row" style="margin:1rem 0;gap:.5rem;align-items:flex-end">
+        <button class="btn good sm" data-act="clear" data-id="${r.id}">Clear: approve flagged runs</button>
+        ${r.status === 'disqualified'
+          ? `<button class="btn sm" data-act="forgive" data-id="${r.id}">Forgive: undo disqualification</button>`
+          : `<input id="dq-reason" placeholder="Reason (the runner sees this)" style="max-width:280px;padding:.45rem .7rem"><button class="btn danger sm" data-act="disqualify" data-id="${r.id}">Disqualify</button>`}
+      </div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Day</th><th>When</th><th class="r">Distance</th><th class="r">Pace</th><th class="r">Max</th><th>Status</th><th>Checks</th><th></th></tr></thead>
+        <tbody>${d.runs.map((x) => `<tr>
+          <td>${x.race_day}</td><td class="small">${fmtLocal(x.start_time)}<div class="muted">${x.source}</div></td>
+          <td class="r num">${dist(x.distance_m, 2)}</td><td class="r num">${pace(x.moving_s, x.distance_m)}</td><td class="r num">${x.max_speed_kmh ?? '–'} km/h</td>
+          <td><span class="badge ${x.status}">${x.status} ${x.risk_score}</span>${x.review_note ? `<div class="small muted" style="white-space:normal;max-width:200px">${esc(x.review_note)}</div>` : ''}</td>
+          <td class="small" style="white-space:normal;min-width:200px">${x.flags.map((f) => `<div><b>${f.code}</b> ${esc(f.detail)}</div>`).join('') || '—'}</td>
+          <td><div class="row" style="gap:.3rem;flex-wrap:nowrap"><button class="btn ghost sm" data-view="${x.id}">Map</button>
+            ${x.status !== 'approved' ? `<button class="btn good sm" data-review="${x.id}" data-action="approve">Approve</button>` : ''}
+            ${x.status !== 'rejected' ? `<button class="btn danger sm" data-review="${x.id}" data-action="reject">Reject</button>` : ''}
+            <button class="btn danger sm" data-del-run="${x.id}">Remove</button></div></td></tr>`).join('') || '<tr><td colspan="8" class="muted">No runs.</td></tr>'}</tbody></table></div>
+      <form class="row" id="add-run" style="margin-top:1rem;gap:.6rem">
+        <label class="btn ghost sm" for="add-file">Upload a run for this runner</label><input type="file" id="add-file" class="hidden">
+        <span class="small muted">.gpx, .tcx or .fit. Any day of the race; it’s placed on the day it was recorded and approved.</span>
+      </form>
+    </div>`;
+    $('add-file').addEventListener('change', async (e) => {
+      const f = e.target.files[0];
+      if (!f) return;
+      const fd = new FormData();
+      fd.append('file', f);
+      const res = await fetch(`/api/admin/registrations/${r.id}/runs`, { method: 'POST', body: fd, credentials: 'same-origin', headers: demoHeaders() });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) return toast(data.error || 'Upload failed.');
+      toast(`Run added to Day ${data.day} (${dist(data.distance_m, 2)}).`);
+      reviewRegistration(r.id);
+    });
+    target.querySelector('#review').scrollIntoView({ behavior: 'smooth' });
+  }
+
+  // ------------------------------------------------------------ runners & runs
+  async function runs() {
+    panel.innerHTML = `
+      <div class="card">
+        <h3 style="margin-top:0">Find a runner</h3>
+        <p class="small ink2">Search by name or email to see their races, then upload a run for them or remove one.</p>
+        <input id="uq" placeholder="Name or email" style="max-width:360px">
+        <div id="ures" style="margin-top:1rem"></div>
+      </div>
+      <div id="sub"></div>`;
+    let t;
+    $('uq').addEventListener('input', (e) => { clearTimeout(t); t = setTimeout(() => searchUsers(e.target.value), 250); });
+    searchUsers('');
+  }
+  async function searchUsers(q) {
+    const d = await api(`/admin/users?q=${encodeURIComponent(q)}`);
+    $('ures').innerHTML = d.users.length ? `<div class="table-wrap"><table><thead><tr><th>Account</th><th>Joined</th><th>Races</th></tr></thead><tbody>${d.users.map((u) => `<tr>
+      <td><b>${esc(u.first_name)} ${esc(u.last_name)}</b> ${u.role !== 'runner' ? `<span class="badge open">${u.role}</span>` : ''}<div class="small muted">${esc(u.email)}</div></td>
+      <td class="small">${when(u.created_at)}</td>
+      <td>${u.registrations.length ? u.registrations.map((r) => `<button class="btn ghost sm" data-reg="${r.id}" style="margin:.15rem">${esc(r.event_name)} · #${r.bib}${r.is_demo ? ' (demo)' : ''}</button>`).join('') : '<span class="muted small">Not entered in a race</span>'}</td></tr>`).join('')}</tbody></table></div>`
+      : '<p class="muted small">No accounts found.</p>';
+  }
+
+  // ------------------------------------------------------------ admins
+  async function admins() {
+    const d = await api('/admin/admins');
+    panel.innerHTML = `
+      <div class="card">
+        <h3 style="margin-top:0">Admins</h3>
+        <p class="small ink2">Admins can do everything on this page. The <b>owner</b> account can only be removed with the owner password.</p>
+        <div class="table-wrap"><table><thead><tr><th>Admin</th><th>Role</th><th></th></tr></thead><tbody>${d.admins.map((a) => `<tr>
+          <td><b>${esc(a.first_name)} ${esc(a.last_name)}</b><div class="small muted">${esc(a.email)}</div></td>
+          <td><span class="badge ${a.role === 'owner' ? 'live' : 'open'}">${a.role}</span></td>
+          <td>${a.role === 'owner'
+            ? `<div class="row" style="gap:.4rem;flex-wrap:nowrap"><input type="password" placeholder="Owner password" data-pw="${a.id}" autocomplete="off" style="max-width:180px;padding:.4rem .6rem"><button class="btn danger sm" data-rm-admin="${a.id}">Remove</button></div>`
+            : `<button class="btn danger sm" data-rm-admin="${a.id}">Remove admin</button>`}</td></tr>`).join('')}</tbody></table></div>
+      </div>
+      <form class="card stack" id="add-admin">
+        <h3 style="margin:0">Make someone an admin</h3>
+        <p class="small ink2" style="margin:0">They need an account first (Log in → Create an account). Then enter their email here.</p>
+        <div class="row"><input id="new-admin" type="email" placeholder="their@email.com" style="max-width:320px"><button class="btn" type="submit">Make admin</button></div>
+      </form>`;
+    $('add-admin').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      try { await api('/admin/admins', { json: { email: $('new-admin').value } }); toast('Admin added.'); admins(); } catch (x) { toast(x.message); }
+    });
+  }
+
+  // ------------------------------------------------------------ demo mode
+  async function demo() {
+    const on = demoOn();
+    const as = localStorage.getItem('lls-demo-as') || '';
+    const go = (k, href, icon, tag, title, text) => `<button class="path-card" style="text-align:left;font:inherit;cursor:pointer" data-demo-as="${k}" data-href="${href}"><span class="big" aria-hidden="true">${icon}</span><span class="tag">${tag}</span><b>${title}</b><span class="small ink2">${text}</span></button>`;
+    panel.innerHTML = `
+      <div class="card raise row between">
+        <div><h3 style="margin:0">Demo mode is <span class="${on ? 'gold' : 'muted'}">${on ? 'ON' : 'OFF'}</span></h3>
+          <p class="small ink2" style="margin:.3rem 0 0">${on ? `You’re seeing sample races and runners${DEMO_AS[as] ? `, viewing as <b>${DEMO_AS[as]}</b>` : ''}. Only admins ever see demo data.` : 'You’re seeing exactly what the public sees.'}</p></div>
+        <button class="btn ${on ? 'ghost' : ''}" id="demo-toggle">${on ? 'Turn demo mode off' : 'Turn demo mode on'}</button>
+      </div>
+      <div class="path-pick">
+        ${go('', '/live.html', '🔴', 'Public pages', 'Live race &amp; results', 'The demo race on Day 18, the finished sample event with awards, and the home page live banner.')}
+        ${go('paid', '/account.html', '🎟', 'View as runner', 'Signed up &amp; paid', 'Jordan’s dashboard before the race: bib, countdown, order details and checklist.')}
+        ${go('runner', '/account.html', '🔥', 'View as runner', 'In the race, Day 18', 'Today’s distance, deadline countdown, past runs, uploads and the tracker.')}
+        ${go('', '/signup.html', '📝', 'Preview', 'Sign-up with the test card', 'The full sign-up, waiver and welcome animation with card 4242 4242 4242 4242. Nothing is saved.')}
+        <button class="path-card" style="text-align:left;font:inherit;cursor:pointer" id="demo-hype"><span class="big" aria-hidden="true">⚡</span><b>The welcome animation</b><span class="small ink2">The hype sequence every runner sees after signing up.</span></button>
+      </div>`;
+    $('demo-toggle').addEventListener('click', () => { setDemo(!on); ov = null; location.reload(); });
+    panel.querySelectorAll('[data-href]').forEach((b) => b.addEventListener('click', () => { setDemo(true, b.dataset.demoAs || null); location.href = b.dataset.href; }));
+    $('demo-hype').addEventListener('click', () => playHype({ first: 'Jordan', last: 'Rivera', bib: 1, event: 'Last Legs Standing 2027', startMs: Date.parse('2027-03-01T00:00:00Z') }));
+  }
+
+  // ------------------------------------------------------------ activity log
+  async function log() {
+    const d = await api('/admin/log');
+    panel.innerHTML = `<div class="card"><h3 style="margin-top:0">Activity log</h3><p class="small ink2">Every change made by an admin, newest first.</p>
+      ${d.log.length ? `<div class="table-wrap" style="max-height:640px"><table><thead><tr><th>When</th><th>Admin</th><th>Action</th><th>On</th><th>Details</th></tr></thead><tbody>${d.log.map((l) => `<tr>
+        <td class="small">${when(l.created_at)}</td><td class="small">${esc(l.admin_email || '')}</td><td><b>${esc(l.action)}</b></td>
+        <td class="small" style="white-space:normal">${esc(l.target || '')}</td><td class="small" style="white-space:normal;min-width:200px">${esc(l.detail || '')}</td></tr>`).join('')}</tbody></table></div>` : '<div class="empty">Nothing yet.</div>'}</div>`;
+  }
+
+  const VIEWS = { overview, events: () => events(), tickets, flags, runs, admins, demo, log };
+
+  // ------------------------------------------------------------ shared click handling
+  panel.addEventListener('click', async (e) => {
+    const t = (sel) => e.target.closest(sel);
+    try {
+      if (t('[data-runners]')) return showRunners(t('[data-runners]').dataset.runners);
+      if (t('[data-awards]')) return showAwards(t('[data-awards]').dataset.awards);
+      if (t('[data-edit]')) return events(t('[data-edit]').dataset.edit);
+      if (t('[data-del-event]')) {
+        const slug = t('[data-del-event]').dataset.delEvent;
+        if (!confirmTwice(t('[data-del-event]'), 'Click again to delete')) return;
+        await api(`/admin/events/${slug}/delete`, { method: 'POST' }); toast('Event deleted.'); return events();
       }
-      await api(`/admin/registrations/${reg.dataset.reg}/status`, { json: { action: reg.dataset.act, reason } });
-      toast(`Runner ${reg.dataset.act === 'disqualify' ? 'disqualified' : 'reinstated'}.`);
-      return showRunners(currentSlug);
-    }
-    const r = e.target.closest('[data-review]');
-    const v = e.target.closest('[data-view]');
-    const ru = e.target.closest('[data-runners]');
-    const aw = e.target.closest('[data-awards]');
-    if (aw) return showAwards(aw.dataset.awards);
-    if (r) {
-      await api(`/admin/runs/${r.dataset.review}/review`, { json: { action: r.dataset.action, note: r.dataset.action === 'approve' ? 'Approved after review' : 'Rejected after review' } });
-      toast(`Run ${r.dataset.action}d.`);
-      load();
-    } else if (v) {
-      const run = await api(`/runs/${v.dataset.view}`);
-      $('run-body').innerHTML = `<p class="small ink2">${fmtLocal(run.start_time)} · ${dist(run.distance_m, 2)} · ${duration(run.moving_s)} · max ${run.max_speed_kmh} km/h</p><div class="map" id="rmap"></div>`;
-      $('run-dialog').showModal();
-      drawTrack($('rmap'), run.track);
-    } else if (ru) showRunners(ru.dataset.runners);
+      if (t('[data-reg]')) {
+        if (!$('sub')) panel.insertAdjacentHTML('beforeend', '<div id="sub"></div>');
+        return reviewRegistration(t('[data-reg]').dataset.reg);
+      }
+      if (t('[data-act]')) {
+        const b = t('[data-act]');
+        const reason = b.dataset.act === 'disqualify' ? $('dq-reason').value.trim() : '';
+        if (b.dataset.act === 'disqualify' && !reason) return toast('Write a reason first (the runner sees it).');
+        await api(`/admin/registrations/${b.dataset.id}/status`, { json: { action: b.dataset.act, reason } });
+        toast({ clear: 'Runner cleared.', disqualify: 'Runner disqualified.', forgive: 'Disqualification undone.' }[b.dataset.act]);
+        ov = null;
+        return reviewRegistration(b.dataset.id);
+      }
+      if (t('[data-review]')) {
+        const b = t('[data-review]');
+        await api(`/admin/runs/${b.dataset.review}/review`, { json: { action: b.dataset.action, note: b.dataset.action === 'approve' ? 'Approved after review' : 'Rejected after review' } });
+        toast(`Run ${b.dataset.action}d.`);
+        return reviewRegistration(document.querySelector('[data-act]').dataset.id);
+      }
+      if (t('[data-del-run]')) {
+        const b = t('[data-del-run]');
+        if (!confirmTwice(b, 'Click again to remove')) return;
+        await api(`/admin/runs/${b.dataset.delRun}/delete`, { method: 'POST' });
+        toast('Run removed.');
+        return reviewRegistration(document.querySelector('[data-act]').dataset.id);
+      }
+      if (t('[data-view]')) {
+        const run = await api(`/runs/${t('[data-view]').dataset.view}`);
+        $('run-body').innerHTML = `<p class="small ink2">${fmtLocal(run.start_time)} · ${dist(run.distance_m, 2)} · ${duration(run.moving_s)} · max ${run.max_speed_kmh} km/h</p><div class="map" id="rmap"></div>`;
+        $('run-dialog').showModal();
+        return drawTrack($('rmap'), run.track);
+      }
+      if (t('[data-reply]')) {
+        const b = t('[data-reply]');
+        const box = b.closest('.ticket').querySelector('textarea');
+        if (!box.value.trim()) return toast('Write a reply first.');
+        const res = await api(`/admin/support/${b.dataset.reply}/reply`, { json: { body: box.value, close: !!b.dataset.close } });
+        toast(res.emailed ? 'Reply emailed to the runner.' : res.emailError ? `Saved, but the email failed: ${res.emailError}` : 'Reply saved (not emailed).');
+        ov = null; return tickets();
+      }
+      if (t('[data-tid]')) {
+        const b = t('[data-tid]');
+        await api(`/admin/support/${b.dataset.tid}`, { json: { status: b.dataset.status } });
+        ov = null; return tickets();
+      }
+      if (t('[data-rm-admin]')) {
+        const b = t('[data-rm-admin]');
+        const pw = panel.querySelector(`[data-pw="${b.dataset.rmAdmin}"]`)?.value;
+        if (!confirmTwice(b, 'Click again to confirm')) return;
+        const res = await api(`/admin/admins/${b.dataset.rmAdmin}/remove`, { json: { password: pw } });
+        toast('Admin removed.');
+        if (res.self) location.href = '/'; else admins();
+      }
+    } catch (x) { toast(x.message); }
   });
-  load();
+  // Dangerous buttons need a second click within 3 seconds.
+  function confirmTwice(btn, label) {
+    if (btn.dataset.armed) return true;
+    const old = btn.textContent;
+    btn.dataset.armed = '1'; btn.textContent = label;
+    setTimeout(() => { delete btn.dataset.armed; btn.textContent = old; }, 3000);
+    return false;
+  }
+  show();
 </script>
 </body>
 </html>

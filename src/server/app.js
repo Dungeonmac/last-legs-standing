@@ -6,8 +6,9 @@ import { syncEvent, liveStats, pastEventStats, publicEvent, recheckRegistration,
 import {
   stripeEnabled, createPaymentIntent, verifyPaymentIntent,
   stravaEnabled, stravaAuthorizeUrl, stravaExchange, stravaTodaysActivities, stravaActivityPoints,
-  emailEnabled, sendEmail, stripeTestMode,
+  emailEnabled, sendEmail, stripeTestMode, sendToRunner, canEmailRunners,
 } from './integrations.js';
+import { registerAdminRoutes } from './admin.js';
 import { ageGroup, divisionLabel } from '../../public/js/divisions.js';
 
 export const WAIVER_VERSION = '2026-10-30.2';
@@ -161,7 +162,7 @@ route('GET', '/me', async ({ request, env }) => {
        FROM registrations r JOIN events e ON e.id = r.event_id
       WHERE r.user_id = ? AND (e.is_demo = 0 OR ?) ORDER BY e.start_date DESC`,
   ).bind(user.id, user.demo ? 1 : 0).all();
-  const p = await env.DB.prepare('SELECT dob, gender FROM users WHERE id = ?').bind(user.id).first();
+  const p = await env.DB.prepare('SELECT dob, gender, avatar_updated FROM users WHERE id = ?').bind(user.id).first();
   for (const r of results) {
     r.division = divisionLabel(p.gender, ageGroup(p.dob ? ageOn(p.dob, r.start_date) : null));
     // Award (if any) from a finished event
@@ -172,7 +173,10 @@ route('GET', '/me', async ({ request, env }) => {
     delete r.id; delete r.event_id;
   }
   return json({
-    user: { id: user.id, email: user.email, first_name: user.first_name, last_name: user.last_name, isAdmin: user.isAdmin, demo: user.demo, viewingAs: user.viewingAs || null },
+    user: {
+      id: user.id, email: user.email, first_name: user.first_name, last_name: user.last_name, isAdmin: user.isAdmin, demo: user.demo,
+      viewingAs: user.viewingAs || null, avatar: p?.avatar_updated ? `/api/profile/avatar?v=${p.avatar_updated}` : null,
+    },
     registrations: results,
     accountsOpen: accountsOpen(env),
     raceSignupOpen: raceSignupOpen(env),
@@ -612,105 +616,60 @@ route('POST', '/support', async ({ request, env }) => {
   return json({ ok: true, id, emailed }, 201);
 });
 
-route('GET', '/admin/support', async ({ request, env }) => {
-  await requireAdmin(request, env);
-  const { results } = await env.DB.prepare('SELECT * FROM support_messages ORDER BY status = \'open\' DESC, created_at DESC LIMIT 200').all();
-  return json({ messages: results, emailEnabled: emailEnabled(env), supportEmail: env.SUPPORT_EMAIL || null });
-});
+// ---------------------------------------------------------------- profile (picture + rank)
+const AVATAR_MAX_BYTES = 150 * 1024; // the browser resizes pictures to 320 px before upload
 
-route('POST', '/admin/support/:id', async ({ request, env, params }) => {
-  await requireAdmin(request, env);
-  const { status } = await readJson(request);
-  if (!['open', 'closed'].includes(status)) throw new HttpError(400, 'Status must be open or closed.');
-  await env.DB.prepare('UPDATE support_messages SET status = ? WHERE id = ?').bind(status, params.id).run();
-  return json({ ok: true });
-});
-
-// ---------------------------------------------------------------- admin
-route('GET', '/admin/overview', async ({ request, env }) => {
-  await requireAdmin(request, env);
-  const events = await allEvents(env, true);
-  const { results: stats } = await env.DB.prepare(
-    `SELECT event_id, COUNT(*) AS total, SUM(first_time = 1) AS first_timers, SUM(first_time = 0) AS returners,
-            SUM(status = 'active') AS active, SUM(status = 'disqualified') AS dq,
-            SUM(CASE WHEN payment_status IN ('paid', 'demo_paid') THEN amount_cents ELSE 0 END) AS revenue_cents
-       FROM registrations GROUP BY event_id`,
-  ).all();
-  const byId = Object.fromEntries(stats.map((s) => [s.event_id, s]));
-  const { results: queue } = await env.DB.prepare(
-    `SELECT ru.id, ru.race_day, ru.source, ru.start_time, ru.distance_m, ru.moving_s, ru.risk_score, ru.flags, ru.status, ru.max_speed_kmh,
-            u.first_name || ' ' || u.last_name AS runner, u.email, r.bib, e.name AS event_name
-       FROM runs ru JOIN users u ON u.id = ru.user_id JOIN registrations r ON r.id = ru.registration_id JOIN events e ON e.id = ru.event_id
-      WHERE ru.status = 'flagged' OR (ru.status = 'rejected' AND ru.risk_score < 100 AND ru.review_note IS NULL)
-      ORDER BY ru.status = 'flagged' DESC, ru.created_at DESC LIMIT 100`,
-  ).all();
-  return json({
-    events: events.map((e) => ({ ...publicEvent(e), stats: byId[e.id] || { total: 0 } })),
-    queue: queue.map((q) => ({ ...q, flags: JSON.parse(q.flags || '[]') })),
-  });
-});
-
-route('POST', '/admin/runs/:id/review', async ({ request, env, params }) => {
-  const admin = await requireAdmin(request, env);
-  const { action, note } = await readJson(request);
-  if (!['approve', 'reject'].includes(action)) throw new HttpError(400, 'Action must be approve or reject.');
-  const run = await env.DB.prepare('SELECT * FROM runs WHERE id = ?').bind(params.id).first();
-  if (!run) throw new HttpError(404, 'Run not found.');
-  await env.DB.prepare('UPDATE runs SET status = ?, review_note = ? WHERE id = ?')
-    .bind(action === 'approve' ? 'approved' : 'rejected', `${clean(note, 500) || action} (by ${admin.email})`, run.id).run();
-  const ev = await env.DB.prepare('SELECT * FROM events WHERE id = ?').bind(run.event_id).first();
-  await recheckRegistration(env, ev, run.registration_id);
-  return json({ ok: true });
-});
-
-route('GET', '/admin/events/:slug/registrations', async ({ request, env, params }) => {
-  await requireAdmin(request, env);
-  const ev = await eventBySlug(env, params.slug, true);
-  const rows = await standings(env, ev.id, 5000);
-  const { results: extra } = await env.DB.prepare(
-    `SELECT r.id, u.first_name || ' ' || u.last_name AS full_name, u.email, r.first_time, r.shirt_size, r.payment_status, r.created_at
-       FROM registrations r JOIN users u ON u.id = r.user_id WHERE r.event_id = ?`,
-  ).bind(ev.id).all();
-  const byId = Object.fromEntries(extra.map((x) => [x.id, x]));
-  return json({ event: publicEvent(ev), registrations: rows.map((r) => ({ ...r, ...byId[r.id] })) });
-});
-
-// Award winners with what's needed to ship their shirt and medal. Only award winners get them.
-route('GET', '/admin/events/:slug/awards', async ({ request, env, params }) => {
-  await requireAdmin(request, env);
-  const ev = await eventBySlug(env, params.slug, true);
-  const { awards } = await rankEvent(env, ev.id);
-  const ids = [...new Set(awards.flatMap((c) => c.winners.map((w) => w.id)))];
-  const ship = {};
-  for (let i = 0; i < ids.length; i += 50) {
-    const chunk = ids.slice(i, i + 50);
-    const { results } = await env.DB.prepare(
-      `SELECT r.id, u.first_name || ' ' || u.last_name AS full_name, u.email, u.phone, r.shirt_size,
-              a.line1, a.line2, a.city, a.region, a.postal, a.country AS ship_country
-         FROM registrations r JOIN users u ON u.id = r.user_id
-         LEFT JOIN addresses a ON a.user_id = u.id AND a.kind = 'shipping'
-        WHERE r.id IN (${chunk.map(() => '?').join(',')})`,
-    ).bind(...chunk).all();
-    for (const x of results) ship[x.id] = x;
+route('GET', '/profile', async ({ request, env }) => {
+  const user = await requireViewer(request, env);
+  const p = await env.DB.prepare('SELECT avatar_updated, created_at FROM users WHERE id = ?').bind(user.id).first();
+  // Events competed in: races that have started (live or finished), not counting disqualifications.
+  const { results: regs } = await env.DB.prepare(
+    `SELECT r.id, r.status, r.eliminated_day, e.id AS event_id, e.name, e.slug, e.status AS event_status, e.start_date
+       FROM registrations r JOIN events e ON e.id = r.event_id
+      WHERE r.user_id = ? AND e.status IN ('live', 'completed') AND (e.is_demo = 0 OR ?) ORDER BY e.start_date`,
+  ).bind(user.id, user.demo ? 1 : 0).all();
+  const awards = [];
+  for (const r of regs.filter((x) => x.event_status === 'completed')) {
+    const { rows } = await rankEvent(env, r.event_id);
+    const a = rows.find((x) => x.id === r.id)?.award;
+    if (a) awards.push({ ...a, event: r.name, slug: r.slug, year: r.start_date.slice(0, 4) });
   }
   return json({
-    event: publicEvent(ev),
-    final: ev.status === 'completed',
-    awards: awards.map((c) => ({ ...c, winners: c.winners.map((w) => ({ ...w, ...ship[w.id] })) })),
+    user: { first_name: user.first_name, last_name: user.last_name, email: user.email, since: p?.created_at },
+    avatar: p?.avatar_updated ? `/api/profile/avatar?v=${p.avatar_updated}` : null,
+    events_competed: regs.filter((r) => r.status !== 'disqualified').length,
+    events: regs.map((r) => ({ name: r.name, slug: r.slug, status: r.status, eliminated_day: r.eliminated_day, event_status: r.event_status })),
+    awards,
   });
 });
 
-route('POST', '/admin/registrations/:id/status', async ({ request, env, params }) => {
-  await requireAdmin(request, env);
-  const { action, reason } = await readJson(request);
-  const reg = await env.DB.prepare('SELECT r.*, e.start_date FROM registrations r JOIN events e ON e.id = r.event_id WHERE r.id = ?').bind(params.id).first();
-  if (!reg) throw new HttpError(404, 'Registration not found.');
-  if (action === 'disqualify') {
-    if (!clean(reason)) throw new HttpError(400, 'A reason is required to disqualify a runner.');
-    await env.DB.prepare(`UPDATE registrations SET status = 'disqualified', eliminated_day = COALESCE(eliminated_day, ?), status_reason = ? WHERE id = ?`)
-      .bind(Math.max(1, dayNumber(reg.start_date)), `Disqualified: ${clean(reason, 300)}`, reg.id).run();
-  } else if (action === 'reinstate') {
-    await env.DB.prepare(`UPDATE registrations SET status = 'active', eliminated_day = NULL, status_reason = NULL WHERE id = ?`).bind(reg.id).run();
-  } else throw new HttpError(400, 'Unknown action.');
-  return json({ ok: true });
+route('GET', '/profile/avatar', async ({ request, env }) => {
+  const user = await requireViewer(request, env);
+  const row = await env.DB.prepare('SELECT avatar FROM users WHERE id = ?').bind(user.id).first();
+  const m = /^data:(image\/(?:jpeg|png|webp));base64,(.+)$/.exec(row?.avatar || '');
+  if (!m) throw new HttpError(404, 'No profile picture.');
+  const bytes = Uint8Array.from(atob(m[2]), (c) => c.charCodeAt(0));
+  return new Response(bytes, { headers: { 'content-type': m[1], 'cache-control': 'private, max-age=86400', 'x-content-type-options': 'nosniff' } });
+});
+
+route('POST', '/profile/avatar', async ({ request, env }) => {
+  const user = await requireViewer(request, env);
+  if (user.viewingAs) throw new HttpError(400, 'Demo runners’ pictures can’t be changed.');
+  const { image, remove } = await readJson(request);
+  if (remove) {
+    await env.DB.prepare('UPDATE users SET avatar = NULL, avatar_updated = NULL WHERE id = ?').bind(user.id).run();
+    return json({ ok: true, avatar: null });
+  }
+  if (!/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(image || '')) throw new HttpError(400, 'Choose a JPG, PNG or WebP picture.');
+  if (image.length * 0.75 > AVATAR_MAX_BYTES) throw new HttpError(413, 'That picture is too large. Try a smaller one.');
+  const v = Date.now();
+  await env.DB.prepare('UPDATE users SET avatar = ?, avatar_updated = ? WHERE id = ?').bind(image, v, user.id).run();
+  return json({ ok: true, avatar: `/api/profile/avatar?v=${v}` });
+});
+
+// ---------------------------------------------------------------- admin (src/server/admin.js)
+registerAdminRoutes(route, {
+  json, HttpError, readJson, clean, requireAdmin, allEvents, eventBySlug, publicEvent, rankEvent, standings,
+  recheckRegistration, refreshTotals, dayNumber, dayWindow, parseActivityFile, computeMetrics, fingerprint, assessRun,
+  sha256Hex, sendToRunner, canEmailRunners, verifyPassword, isEmail, isDemoRequest,
 });

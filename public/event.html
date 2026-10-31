@@ -28,6 +28,7 @@
   import { survivorsChart } from '/js/chart.js';
   import { GOLDEN_RULES } from '/js/legal.js';
   import { awardsHTML } from '/js/awards-view.js';
+  import { applyEventStats } from '/js/event-stats.js';
   import { AGE_GROUP_LIST } from '/js/divisions.js';
   mountChrome();
 
@@ -98,32 +99,32 @@
       </div>
 
       <div class="grid g4">
-        <div class="tile"><div class="label">Runners</div><div class="value">${d.total_runners}</div><div class="sub">${d.rookies} first-timers · ${d.returning} returning</div></div>
+        <div class="tile" data-stat="first_timers"><div class="label">Runners</div><div class="value">${d.total_runners}</div><div class="sub">${d.rookies} first-timers · ${d.returning} returning</div></div>
         <div class="tile"><div class="label">Race lasted</div><div class="value">${d.days} days</div><div class="sub">Final day: ${both(d.days * 1000, 0)}</div></div>
         <div class="tile"><div class="label">Champion’s total</div><div class="value">${dist(d.winner_distance_m, 0)}</div><div class="sub">${both(d.winner_distance_m, 0)}</div></div>
-        <div class="tile"><div class="label">Run by everyone</div><div class="value">${dist(d.total_distance_m, 0)}</div><div class="sub">${d.total_runs.toLocaleString()} verified runs · ${d.disqualified} DQ</div></div>
+        <div class="tile" data-stat="total_distance"><div class="label">Run by everyone</div><div class="value">${dist(d.total_distance_m, 0)}</div><div class="sub">${d.total_runs.toLocaleString()} verified runs · ${d.disqualified} DQ</div></div>
       </div>
 
-      <div class="card" style="margin-top:1.25rem">
+      <div data-stat="division_leaders" class="card" style="margin-top:1.25rem">
         <h3>Award winners</h3>
         <p class="small ink2" style="margin-top:0">One award per runner. Overall winners are skipped in the men’s, women’s and age-group lists, and the next runner moves up. Every award winner receives a shirt and medal.</p>
         ${awardsHTML(d.awards, { days: d.days })}
       </div>
 
-      <div class="card" style="margin-top:1.25rem">
+      <div data-stat="survivors_chart" class="card" style="margin-top:1.25rem">
         <h3>Runners left after each day</h3>
         <div id="chart"></div>
       </div>
 
       <div class="grid g2" style="margin-top:1.25rem;align-items:start">
-        <div class="card">
+        <div data-stat="leaderboard" class="card">
           <div class="row between"><h3 style="margin:0">Final standings</h3>
             <div class="row" style="gap:.5rem"><select id="div" style="width:auto;padding:.5rem .7rem" aria-label="Division"></select><input id="search" placeholder="Search runner or country" style="max-width:200px;padding:.5rem .7rem"></div></div>
           <div class="table-wrap" style="margin-top:1rem;max-height:520px"><table>
             <thead><tr><th>#</th><th>Runner</th><th>Division</th><th>Bib</th><th class="r">Lasted</th><th class="r">Total</th></tr></thead>
             <tbody id="standings"></tbody></table></div>
         </div>
-        <div class="card">
+        <div data-stat="fastest_by_day" class="card">
           <h3>Fastest full-distance run each day</h3>
           <div class="table-wrap" style="max-height:580px"><table>
             <thead><tr><th>Day</th><th>Runner</th><th class="r">Pace</th></tr></thead>
@@ -131,6 +132,7 @@
         </div>
       </div>`;
     survivorsChart($('chart'), d.survivors);
+    applyEventStats(document, ev.stats); // only the statistics this event tracks
     // Division filter: overall, men, women, or one age group. The place column shows the place within the chosen division.
     const divs = [...new Set(d.standings.map((r) => r.division).filter(Boolean))].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
     $('div').innerHTML = '<option value="">Overall</option><option value="Male">Men</option><option value="Female">Women</option>'

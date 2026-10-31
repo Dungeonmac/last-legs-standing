@@ -1,5 +1,6 @@
 // Full-screen "you're in" hype sequence, played right after sign-up (and replayable from My race).
 import { esc, fmtLocal } from './common.js';
+import { bibHTML } from './bib.js';
 
 const BEAT = 1150;
 
@@ -14,7 +15,6 @@ export function playHype({ first = '', last = '', bib, event = 'Last Legs Standi
     `One more K.<br>Every day.<br><span class="accent">Until one is left.</span>`,
     `How many days<br>do you have<br><span class="gold">in you?</span>`,
   ];
-  const lastInitial = last ? ` ${esc(last[0])}.` : '';
   const root = document.createElement('div');
   root.className = 'hype';
   root.setAttribute('role', 'dialog');
@@ -25,7 +25,7 @@ export function playHype({ first = '', last = '', bib, event = 'Last Legs Standi
     <button class="btn ghost sm skip-hype" type="button">Skip</button>
     ${lines.map((l) => `<div class="line" aria-hidden="true">${l}</div>`).join('')}
     <div class="line final-wrap" aria-live="polite"><div class="final">
-      <div class="bib"><div class="ev">${esc(event)}</div><div class="no">${bib ?? '—'}</div><div class="nm">${esc(first)}${lastInitial}</div></div>
+      ${bibHTML({ event, bib: bib ?? "—", name: `${first}${last ? ` ${last[0]}.` : ""}` })}
       <h2>Welcome to the <span class="accent">start line.</span></h2>
       ${startMs ? `<p class="ink2" style="margin:0;font-size:1rem">Day 1 starts ${fmtLocal(startMs)}</p>` : ''}
       <button class="btn lg go" type="button">Let’s go</button>

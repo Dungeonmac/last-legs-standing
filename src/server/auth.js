@@ -83,7 +83,7 @@ export async function currentUser(request, env) {
   if (!row) return null;
   // Admin rights live on the account itself (users.role), set with `npm run make-admin -- <email>`.
   // Never grant admin by email address alone: emails aren't verified, so anyone could sign up with one.
-  row.isAdmin = row.role === 'admin';
+  row.isAdmin = row.role === 'admin' || row.role === 'owner';
   return row;
 }
 

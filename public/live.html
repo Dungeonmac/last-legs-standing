@@ -19,6 +19,7 @@
   import { mountChrome, api, fmtLocal, fmtUTC, fmtDate, esc, dist, both, pace, duration, countdown, money } from '/js/common.js';
   import { survivorsChart } from '/js/chart.js';
   import { awardsHTML } from '/js/awards-view.js';
+  import { applyEventStats } from '/js/event-stats.js';
   const me = await mountChrome();
   const root = document.getElementById('root');
   const params = new URLSearchParams(location.search);
@@ -72,32 +73,32 @@
         </div>
 
         <div class="grid g4" style="margin-top:1.25rem">
-          <div class="tile"><div class="label">Total runners</div><div class="value">${d.total_runners}</div><div class="sub">${d.rookies} first-timers</div></div>
-          <div class="tile"><div class="label">Runners left</div><div class="value accent">${d.runners_left}</div><div class="sub">${outPct}% of the field is out</div></div>
-          <div class="tile"><div class="label">Eliminated on Day ${Math.max(1, d.day - 1)}</div><div class="value">${d.day > 1 ? d.eliminated_last_day : 0}</div><div class="sub">${d.disqualified} disqualified so far</div></div>
-          <div class="tile"><div class="label">Done for today</div><div class="value">${d.completed_today}</div><div class="sub">of ${d.runners_left} have run ${dist(due, 0)}</div></div>
+          <div class="tile" data-stat="first_timers"><div class="label">Total runners</div><div class="value">${d.total_runners}</div><div class="sub">${d.rookies} first-timers</div></div>
+          <div class="tile" data-stat="runners_left"><div class="label">Runners left</div><div class="value accent">${d.runners_left}</div><div class="sub">${outPct}% of the field is out</div></div>
+          <div class="tile" data-stat="runners_left"><div class="label">Eliminated on Day ${Math.max(1, d.day - 1)}</div><div class="value">${d.day > 1 ? d.eliminated_last_day : 0}</div><div class="sub">${d.disqualified} disqualified so far</div></div>
+          <div class="tile" data-stat="runners_left"><div class="label">Done for today</div><div class="value">${d.completed_today}</div><div class="sub">of ${d.runners_left} have run ${dist(due, 0)}</div></div>
         </div>
 
         <div class="grid g2" style="margin-top:1.25rem">
-          <div class="tile">
+          <div class="tile" data-stat="fastest_today">
             <div class="label">Fastest run today (full distance)</div>
             ${f ? `<div class="value" style="font-size:2rem">${esc(f.name)} <span class="muted" style="font-size:1rem;font-stretch:100%">${esc(f.country || '')}</span></div>
               <div class="sub">${dist(f.distance_m, 2)} in <b>${duration(f.moving_s)}</b> · ${pace(f.moving_s, f.distance_m)}</div>`
               : '<div class="value" style="font-size:1.6rem">No full-distance runs yet</div><div class="sub">Check back as runners upload.</div>'}
           </div>
-          <div class="tile">
+          <div class="tile" data-stat="total_distance">
             <div class="label">Distance run by all runners</div>
             <div class="value">${dist(d.total_distance_m, 0)}</div>
             <div class="sub">Leader so far: <b>${esc(d.leaderboard[0]?.name || '—')}</b> with ${dist(d.leaderboard[0]?.distance_m || 0)}</div>
           </div>
         </div>
 
-        <div class="card" style="margin-top:1.25rem">
+        <div data-stat="survivors_chart" class="card" style="margin-top:1.25rem">
           <h3>Runners left after each day</h3>
           <div id="chart"></div>
         </div>
 
-        <div class="card" style="margin-top:1.25rem">
+        <div data-stat="leaderboard" class="card" style="margin-top:1.25rem">
           <div class="row between"><h3 style="margin:0">Leaderboard: total distance</h3><span class="muted small">Top 25</span></div>
           <div class="table-wrap" style="margin-top:1rem"><table>
             <thead><tr><th>#</th><th>Runner</th><th>Division</th><th>Bib</th><th>Status</th><th class="r">Total distance</th><th class="r">Moving time</th></tr></thead>
@@ -106,7 +107,7 @@
               <td class="r num"><b>${dist(r.distance_m)}</b></td><td class="r num">${duration(r.moving_s)}</td></tr>`).join('')}</tbody></table></div>
         </div>
 
-        <div class="card" style="margin-top:1.25rem">
+        <div data-stat="division_leaders" class="card" style="margin-top:1.25rem">
           <h3>Division leaders right now</h3>
           <p class="small ink2" style="margin-top:0">Who would win each award if the race ended today. One award per runner, as at most road races. Final awards are decided when the last runner is eliminated.</p>
           ${awardsHTML(d.category_leaders || [], { live: true })}
@@ -115,6 +116,7 @@
     stopCountdown();
     stopCountdown = countdown(document.getElementById('cd'), d.window.deadline + 999, { serverNow: d.server_now, small: true, onDone: () => setTimeout(load, 3000) });
     survivorsChart(document.getElementById('chart'), d.survivors);
+    applyEventStats(document, d.event.stats); // only the statistics this event tracks
   }
 
   let last;

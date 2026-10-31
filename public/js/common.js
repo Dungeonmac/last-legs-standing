@@ -3,7 +3,8 @@
 export const SITE = 'Last Legs Standing';
 export const KM_PER_MI = 1.609344;
 // Help desk contact. help@lastlegstanding.com forwards to the team inbox (Cloudflare Email Routing).
-export const SUPPORT = { email: 'help@lastlegstanding.com', phone: '(646) 400-1514', phoneHref: 'tel:+16464001514' };
+// The phone number is a placeholder (555-01xx numbers are reserved for fiction) until a real line is set up.
+export const SUPPORT = { email: 'help@lastlegstanding.com', phone: '(212) 555-0147', phoneHref: 'tel:+12125550147' };
 
 // ---------------------------------------------------------------- admin demo mode
 // Admins can switch on Demo mode to see the site with the sample races and runners (hidden from the public),
@@ -156,9 +157,8 @@ function header(page, me) {
   const account = me.user
     ? `<a href="/upload.html" ${page === 'upload' ? 'aria-current="page"' : ''}>Upload run</a>
        <a href="/track.html" ${page === 'track' ? 'aria-current="page"' : ''}>Tracker</a>
-       ${me.user.isAdmin ? `<a href="/admin.html" ${page === 'admin' ? 'aria-current="page"' : ''}>Admin</a>
-         <a href="/demo.html" class="demo-toggle ${demoOn() ? 'on' : ''}" ${page === 'demo' ? 'aria-current="page"' : ''}>Demo ${demoOn() ? 'on' : 'off'}</a>` : ''}
-       <a href="/account.html" class="btn ghost sm">My race</a>`
+       ${me.user.isAdmin ? `<a href="/admin.html" ${page === 'admin' ? 'aria-current="page"' : ''}>Admin</a>` : ''}
+       <a href="/profile.html" ${page === 'profile' ? 'aria-current="page"' : ''}>Profile</a>`
     : me.accountsOpen === false ? '' : `<a href="/login.html">Log in</a>`;
   return `
   <a class="skip" href="#main">Skip to content</a>
@@ -168,6 +168,8 @@ function header(page, me) {
         <img src="/img/logo-mark.svg" alt="" width="34" height="34">
         <span class="brand-word">Last Legs<span>Standing</span></span>
       </a>
+      ${me.user ? `<a class="my-race-btn" href="/account.html" ${page === 'account' ? 'aria-current="page"' : ''}>
+        ${me.user.avatar ? `<img src="${me.user.avatar}" alt="" width="26" height="26">` : `<span class="mr-initial" aria-hidden="true">${esc((me.user.first_name || '?')[0])}</span>`}My race</a>` : ''}
       <button class="menu-btn" aria-expanded="false" aria-controls="nav">Menu</button>
       <nav class="nav" id="nav" aria-label="Main">
         ${links}

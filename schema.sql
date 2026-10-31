@@ -1,4 +1,6 @@
 -- Last Legs Standing database schema (Cloudflare D1 / SQLite)
+DROP TABLE IF EXISTS admin_log;
+DROP TABLE IF EXISTS support_replies;
 DROP TABLE IF EXISTS login_failures;
 DROP TABLE IF EXISTS support_messages;
 DROP TABLE IF EXISTS runs;
@@ -22,7 +24,9 @@ CREATE TABLE users (
   phone TEXT,
   emergency_name TEXT,
   emergency_phone TEXT,
-  role TEXT NOT NULL DEFAULT 'runner',          -- runner | admin
+  role TEXT NOT NULL DEFAULT 'runner',          -- runner | admin | owner (owner needs a password to be removed)
+  avatar TEXT,                                   -- profile picture as a small data URL
+  avatar_updated INTEGER,
   created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 );
 
@@ -55,7 +59,8 @@ CREATE TABLE events (
   registration_closes TEXT,                      -- ISO timestamp
   last_processed_day INTEGER NOT NULL DEFAULT 0,
   ended_day INTEGER,
-  is_demo INTEGER NOT NULL DEFAULT 0
+  is_demo INTEGER NOT NULL DEFAULT 0,
+  stats TEXT                                     -- JSON array of statistics the event shows (NULL = all)
 );
 
 CREATE TABLE registrations (
@@ -85,6 +90,8 @@ CREATE TABLE registrations (
   eliminated_day INTEGER,
   status_reason TEXT,
   final_place INTEGER,
+  cleared_at TEXT,                               -- an admin reviewed the runner's flags and cleared them
+  cleared_by INTEGER,
   created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   UNIQUE(event_id, user_id),
   UNIQUE(event_id, bib)
@@ -153,3 +160,26 @@ CREATE TABLE login_failures (
   at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 );
 CREATE INDEX login_failures_at ON login_failures(at);
+
+CREATE TABLE support_replies (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  message_id INTEGER NOT NULL REFERENCES support_messages(id) ON DELETE CASCADE,
+  admin_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  body TEXT NOT NULL,
+  emailed INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+CREATE INDEX support_replies_msg ON support_replies(message_id);
+
+-- Everything admins do, for accountability.
+CREATE TABLE admin_log (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  admin_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  admin_email TEXT,
+  action TEXT NOT NULL,
+  target TEXT,
+  detail TEXT,
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+CREATE INDEX admin_log_created ON admin_log(created_at);
+CREATE INDEX runs_status ON runs(status);

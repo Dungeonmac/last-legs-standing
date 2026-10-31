@@ -154,6 +154,7 @@ export function publicEvent(ev) {
     registration_closes: ev.registration_closes,
     ended_day: ev.ended_day,
     is_demo: !!ev.is_demo,
+    stats: ev.stats ? JSON.parse(ev.stats) : null, // statistics this event shows (null = all)
   };
 }
 

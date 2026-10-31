@@ -145,3 +145,23 @@ export async function sendEmail(env, { to, replyTo, replyName, subject, text }) 
   });
   if (!res.ok) throw new Error(`Email provider error (${res.status}): ${await res.text()}`);
 }
+
+// ---------------- Email to runners (help desk replies) ----------------
+// Cloudflare Email Routing can only deliver to verified inboxes (fine for the team inbox, not for runners).
+// Replying to runners needs a sending service: Cloudflare Email Sending (binding EMAIL, Workers Paid plan)
+// or Resend (RESEND_API_KEY). Without either, replies are saved in Admin and can be sent from your own email.
+export const canEmailRunners = (env) => !!(env.EMAIL || env.RESEND_API_KEY);
+const HELP_FROM = 'Last Legs Standing Help <help@lastlegstanding.com>';
+
+export async function sendToRunner(env, { to, subject, text }) {
+  if (env.EMAIL) {
+    await env.EMAIL.send({ from: HELP_FROM, to, subject, text });
+    return;
+  }
+  const res = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: { authorization: `Bearer ${env.RESEND_API_KEY}`, 'content-type': 'application/json' },
+    body: JSON.stringify({ from: env.EMAIL_FROM || HELP_FROM, to: [to], reply_to: 'help@lastlegstanding.com', subject, text }),
+  });
+  if (!res.ok) throw new Error(`Email provider error (${res.status}): ${await res.text()}`);
+}

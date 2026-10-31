@@ -130,11 +130,17 @@
   }
   function msg(kind, html) { $('msg').innerHTML = html ? `<div class="alert ${kind}" style="margin-bottom:1rem">${html}</div>` : ''; }
 
-  function gps(acc) {
+  function gps(acc, searching = false) {
     const dot = $('gps-dot');
-    dot.className = `gps-dot ${acc == null ? '' : acc <= 15 ? 'good' : acc <= 35 ? 'weak' : 'bad'}`;
-    $('gps-text').textContent = acc == null ? 'GPS off' : `GPS ±${Math.round(acc)} m`;
+    dot.className = `gps-dot ${acc == null ? '' : acc <= 20 ? 'good' : acc <= 50 ? 'weak' : 'bad'}`;
+    $('gps-text').textContent = acc == null ? (searching ? 'Finding GPS…' : 'GPS off') : `GPS ±${Math.round(acc)} m`;
   }
+
+  // GPS quality rules. Phones often report 20–60 m accuracy between buildings or under trees, so we take
+  // points up to 50 m, and if nothing good has arrived for 20 s we accept up to 100 m rather than record nothing.
+  const GOOD_ACCURACY_M = 50;
+  const FALLBACK_ACCURACY_M = 100;
+  let lastAccepted = Date.now();
 
   async function ensureMap(lat, lon) {
     if (mapCtx) return;
@@ -147,7 +153,10 @@
     const { latitude: lat, longitude: lon, accuracy, altitude } = pos.coords;
     gps(accuracy);
     ensureMap(lat, lon).then(() => { me.setLatLng([lat, lon]); if (s.status === 'running') mapCtx.map.panTo([lat, lon]); });
-    if (s.status !== 'running' || accuracy > 35) return;
+    if (s.status !== 'running') return;
+    const stale = Date.now() - lastAccepted > 20_000;
+    if (accuracy > (stale ? FALLBACK_ACCURACY_M : GOOD_ACCURACY_M)) return;
+    lastAccepted = Date.now();
     const p = { t: pos.timestamp || Date.now(), lat, lon, ele: altitude };
     const prev = s.points[s.points.length - 1];
     if (prev) {
@@ -161,9 +170,21 @@
   }
 
   function startWatch() {
-    if (!('geolocation' in navigator)) return msg('error', 'This browser doesn’t support GPS.');
-    watchId = navigator.geolocation.watchPosition(onPos, (e) => { gps(null); msg('error', `GPS error: ${esc(e.message)}. Allow location access for this site.`); },
-      { enableHighAccuracy: true, maximumAge: 0, timeout: 20_000 });
+    if (!('geolocation' in navigator)) return msg('error', 'This browser doesn’t support GPS. Try Safari (iPhone) or Chrome (Android), or record with Strava.');
+    if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+    gps(null, true);
+    watchId = navigator.geolocation.watchPosition(onPos, onGpsError, { enableHighAccuracy: true, maximumAge: 0, timeout: 30_000 });
+  }
+  function onGpsError(e) {
+    if (e.code === 1) { // permission denied: explain exactly how to fix it
+      gps(null);
+      msg('error', `<b>Location is blocked for this site.</b> The tracker needs it to record your run.<br>
+        <b>iPhone:</b> Settings → Privacy &amp; Security → Location Services → Safari Websites (or your home-screen app) → <b>While Using the App</b>, then reload this page.<br>
+        <b>Android:</b> tap the icon left of the web address → Permissions → Location → <b>Allow</b>, then reload this page.`);
+      return;
+    }
+    // Timeouts and "position unavailable" are normal indoors or right after starting: keep searching quietly.
+    gps(null, true);
   }
   // Phone browsers pause GPS when the screen locks or another app is opened. We can't change that, so we
   // (1) keep the screen awake while this page is open, and (2) tell the runner if recording was interrupted.
@@ -193,6 +214,7 @@
     }
     if (s.status !== 'running') return;
     keepAwake();
+    startWatch(); // some phones silently stop GPS updates while the page is hidden; restart them
     const gap = hiddenAt ? Date.now() - hiddenAt : 0;
     hiddenAt = null;
     if (gap > 20_000) {

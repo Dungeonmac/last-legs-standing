@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>My profile · Last Legs Standing</title>
+  <meta name="theme-color" content="#0c0d0f">
+  <link rel="icon" href="/img/favicon.svg" type="image/svg+xml">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body data-page="profile">
+<main id="main">
+  <section class="page-head"><div class="wrap">
+    <div class="eyebrow">Account</div>
+    <h1 class="display" style="font-size:clamp(2.4rem,6vw,4rem)">My profile</h1>
+  </div></section>
+  <section class="section" style="padding-top:2.5rem"><div class="wrap stack" id="content"><span class="spinner"></span></div></section>
+</main>
+<script type="module">
+  import { mountChrome, requireLogin, api, esc } from '/js/common.js';
+  import { RANKS, rankFor, nextRank, avatarHTML, bestAward } from '/js/ranks.js';
+  await mountChrome();
+  await requireLogin();
+  const $ = (id) => document.getElementById(id);
+  let p = await api('/profile');
+  const ord = (n) => `${n}${['st', 'nd', 'rd'][n - 1] || 'th'}`;
+
+  function render() {
+    const name = `${p.user.first_name} ${p.user.last_name}`;
+    const rank = rankFor(p.events_competed);
+    const next = nextRank(p.events_competed);
+    const award = bestAward(p.awards);
+    $('content').innerHTML = `
+      <div class="card raise">
+        <div class="row" style="gap:2rem;align-items:center">
+          <div style="padding-top:1rem">${avatarHTML({ src: p.avatar, name, events: p.events_competed, award, size: 'lg' })}</div>
+          <div class="stack" style="flex:1;min-width:240px">
+            <div><h2 style="margin:0">${esc(name)}</h2><p class="small muted" style="margin:.2rem 0 0">${esc(p.user.email)}</p></div>
+            <div><span class="badge active">${esc(rank.name)}</span>
+              <span class="small ink2" style="margin-left:.4rem">${p.events_competed} race${p.events_competed === 1 ? '' : 's'} competed</span></div>
+            <p class="small ink2" style="margin:0">${next ? `Compete in <b>${next.min - p.events_competed} more race${next.min - p.events_competed === 1 ? '' : 's'}</b> to reach <b>${esc(next.name)}</b> (${esc(next.look.toLowerCase())}).` : 'You’ve reached the highest rank. Legend.'}</p>
+            <div class="row" style="gap:.6rem">
+              <label class="btn sm" for="pic">${p.avatar ? 'Change picture' : 'Upload a picture'}</label>
+              <input type="file" id="pic" accept="image/*" class="hidden">
+              ${p.avatar ? '<button class="btn ghost sm" id="remove-pic" type="button">Remove picture</button>' : ''}
+            </div>
+            <div id="pic-msg" class="small"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>My awards</h3>
+        ${p.awards.length ? `<ul class="stack" style="list-style:none;padding:0;margin:0">${p.awards.map((a) => `
+          <li class="row"><span class="pf-ribbon p${a.place}" style="margin:0">${ord(a.place)} · ${esc(a.category)}</span>
+            <a href="/event.html?e=${esc(a.slug)}">${esc(a.event)}</a></li>`).join('')}</ul>`
+          : '<p class="ink2 small" style="margin:0">No awards yet. Finish in the top 3 overall, of the men or women, or of your age group to earn a medal ribbon on your frame.</p>'}
+      </div>
+
+      <div class="card" id="how">
+        <h3>How profile frames work</h3>
+        <p class="ink2">Your frame shows how experienced you are. It levels up every time you <b>compete in a race</b> (any race that has started; disqualifications don’t count). Each level has a fancier shape and color.</p>
+        <div class="rank-table">${RANKS.map((r) => `
+          <div class="tile ${r.key === rank.key ? 'current' : ''}">
+            ${avatarHTML({ name: r.name, rank: r, size: 'md' })}
+            <div><b>${esc(r.name)}</b>${r.key === rank.key ? ' <span class="badge active">You</span>' : ''}
+              <div class="small muted">${r.min === 0 ? 'No races yet' : r.min === 12 ? '12+ races' : `${r.min} race${r.min === 1 ? '' : 's'}`} · ${esc(r.look)}</div></div>
+          </div>`).join('')}
+        </div>
+        <h3 style="margin-top:2rem">Award ribbons</h3>
+        <p class="ink2">Finish in the top 3 of any award group and a medal ribbon is added to your frame: gold, silver or bronze, with your place and the group. If you have several awards, your best one is shown. Overall champions also get a crown.</p>
+        <div class="rank-table">
+          ${avatarHTML({ name: 'Champion', events: 3, award: { place: 1, category: 'Overall' } })}
+          ${avatarHTML({ name: 'Second', events: 5, award: { place: 2, category: 'Women' } })}
+          ${avatarHTML({ name: 'Third', events: 1, award: { place: 3, category: 'Men 40–59' } })}
+        </div>
+      </div>`;
+    $('pic').addEventListener('change', (e) => upload(e.target.files[0]));
+    $('remove-pic')?.addEventListener('click', async () => {
+      await api('/profile/avatar', { json: { remove: true } });
+      p.avatar = null; render();
+    });
+  }
+
+  // Square-crop and shrink the picture in the browser, so uploads are small and fast.
+  async function upload(file) {
+    if (!file) return;
+    const msg = $('pic-msg');
+    if (!/^image\//.test(file.type)) { msg.innerHTML = '<span class="accent">Choose a picture file (JPG, PNG, WebP or HEIC from your phone).</span>'; return; }
+    msg.innerHTML = '<span class="spinner"></span> Uploading…';
+    try {
+      const img = await createImageBitmap(file);
+      const side = Math.min(img.width, img.height);
+      const c = document.createElement('canvas');
+      c.width = c.height = 320;
+      c.getContext('2d').drawImage(img, (img.width - side) / 2, (img.height - side) / 2, side, side, 0, 0, 320, 320);
+      let q = 0.86, data = c.toDataURL('image/jpeg', q);
+      while (data.length * 0.75 > 140 * 1024 && q > 0.4) data = c.toDataURL('image/jpeg', (q -= 0.12));
+      const res = await api('/profile/avatar', { json: { image: data } });
+      p.avatar = res.avatar;
+      render();
+    } catch (x) {
+      msg.innerHTML = `<span class="accent">${esc(x.message || 'That picture couldn’t be read. Try a JPG or PNG.')}</span>`;
+    }
+  }
+  render();
+</script>
+</body>
+</html>
