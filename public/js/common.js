@@ -158,8 +158,8 @@ function header(page, me) {
   const links = NAV.map(([href, label, key]) =>
     `<a href="${href}" ${key === page ? 'aria-current="page"' : ''} ${key === 'live' ? 'data-live-link' : ''}>${label}</a>`).join('');
   const account = me.user
-    ? `<a href="/upload.html" ${page === 'upload' ? 'aria-current="page"' : ''}>Upload run</a>
-       <a href="/track.html" ${page === 'track' ? 'aria-current="page"' : ''}>Tracker</a>
+    ? `<a class="menu-only" href="/upload.html" ${page === 'upload' ? 'aria-current="page"' : ''}>Upload run</a>
+       <a class="menu-only" href="/track.html" ${page === 'track' ? 'aria-current="page"' : ''}>Tracker</a>
        ${me.user.isAdmin ? `<a href="/admin.html" ${page === 'admin' ? 'aria-current="page"' : ''}>Admin</a>` : ''}
        <a href="/profile.html" ${page === 'profile' ? 'aria-current="page"' : ''}>Profile</a>`
     : me.accountsOpen === false ? '' : `<a href="/login.html">Log in</a>`;

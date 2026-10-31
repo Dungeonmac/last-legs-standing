@@ -105,7 +105,7 @@ main { min-height: 70vh; }
 .units button { background: none; border: 0; color: var(--muted); padding: .3rem .6rem; cursor: pointer; font: inherit; }
 .units button[aria-pressed="true"] { background: var(--ink); color: var(--page); }
 .menu-btn { display: none; background: none; border: 1px solid var(--rule); color: var(--ink); border-radius: 8px; padding: .4rem .6rem; cursor: pointer; }
-@media (max-width: 960px) {
+@media (max-width: 1180px) {
   .menu-btn { display: block; margin-left: auto; }
   .nav { display: none; position: absolute; top: 68px; left: 0; right: 0; flex-direction: column; align-items: stretch; background: var(--surface); padding: 1rem; border-bottom: 1px solid var(--rule); }
   .nav.open { display: flex; }
@@ -590,9 +590,9 @@ input, select, textarea { font-size: max(16px, 1em); }
 .demo-mode-bar .btn.ghost { color: #1a1400; border-color: #1a140055; min-height: 0; }
 .nav a.demo-toggle { border: 1px dashed var(--rule); }
 .nav a.demo-toggle.on { color: var(--gold); border-color: var(--gold); }
-@media (max-width: 960px) { .demo-mode-bar { top: 68px; font-size: .8rem; } }
+@media (max-width: 1180px) { .demo-mode-bar { top: 68px; font-size: .8rem; } }
 .nav a { white-space: nowrap; }
-@media (min-width: 961px) and (max-width: 1300px) { .nav a { padding: .45rem .5rem; font-size: .86rem; } .nav-actions { gap: .35rem; } }
+@media (min-width: 1181px) and (max-width: 1360px) { .nav a { padding: .45rem .5rem; font-size: .86rem; } .nav-actions { gap: .35rem; } }
 
 /* ---------- hero (v2): copy + next-race card ---------- */
 .hero { min-height: min(100vh, 920px); align-items: center; }
@@ -757,7 +757,7 @@ input, select, textarea { font-size: max(16px, 1em); }
 
 /* LIVE badge next to the Menu button while a race is live (the nav is collapsed below 960px) */
 .live-pill { display: none; }
-@media (max-width: 960px) {
+@media (max-width: 1180px) {
   .live-pill:not(.hidden) {
     display: inline-flex; align-items: center; gap: .4rem; margin-left: auto; padding: .3rem .7rem; border-radius: 999px;
     border: 1.5px solid var(--orange); color: var(--ink); font-weight: 900; font-size: .74rem; letter-spacing: .1em; text-transform: uppercase;
@@ -766,3 +766,9 @@ input, select, textarea { font-size: max(16px, 1em); }
   .live-pill:not(.hidden)::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--orange); animation: pulse 1.8s infinite; }
   .live-pill:not(.hidden) + .menu-btn { margin-left: .5rem; }
 }
+
+/* Header: the logo never shrinks or wraps; upload/tracker links live in the collapsed menu only */
+.site-header .brand { flex: none; }
+.brand-word { white-space: nowrap; }
+.my-race-btn { flex: none; margin-left: .2rem; }
+@media (min-width: 1181px) { .nav .menu-only { display: none; } }
