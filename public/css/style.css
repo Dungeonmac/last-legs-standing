@@ -479,7 +479,7 @@ textarea { min-height: 150px; resize: vertical; }
   position: absolute; inset: 0; display: grid; place-items: center; align-content: center; padding: 1.5rem; opacity: 0;
   font-stretch: 75%; font-weight: 900; text-transform: uppercase; line-height: .9; font-size: clamp(2.6rem, 11vw, 7rem); letter-spacing: -.01em;
 }
-.hype .line.on { animation: slam 1.3s var(--ease) forwards; }
+.hype .line.on { animation: slam 1.8s var(--ease) forwards; }
 .hype .line.on.stay { animation: slam-stay .7s var(--ease) forwards; }
 @keyframes slam { 0% { opacity: 0; transform: scale(2.4); filter: blur(8px); } 18% { opacity: 1; transform: scale(1); filter: none; } 80% { opacity: 1; transform: scale(1.04); } 100% { opacity: 0; transform: scale(.9); } }
 @keyframes slam-stay { 0% { opacity: 0; transform: scale(2.4); filter: blur(8px); } 100% { opacity: 1; transform: scale(1); filter: none; } }

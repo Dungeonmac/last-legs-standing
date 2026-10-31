@@ -2,7 +2,7 @@
 import { esc, fmtLocal } from './common.js';
 import { bibHTML } from './bib.js';
 
-const BEAT = 1150;
+const BEAT = 1650; // ms between lines; each line is on screen for about 1.8 s
 
 /** Plays the sequence. Resolves when the runner taps through or skips. */
 export function playHype({ first = '', last = '', bib, event = 'Last Legs Standing', startMs } = {}) {
