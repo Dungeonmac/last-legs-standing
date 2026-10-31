@@ -32,8 +32,8 @@
   </section>
 </main>
 <script type="module">
-  import { mountChrome, api, fmtDate, money, esc, dist } from '/js/common.js';
-  mountChrome();
+  import { mountChrome, signedUpFor, api, fmtDate, money, esc, dist } from '/js/common.js';
+  const me = await mountChrome();
   const [data, config] = await Promise.all([api('/events'), api('/config')]);
   const regOpen = (e) => e.registration_open && config.registrationOpen;
   const list = document.getElementById('list');
@@ -41,7 +41,7 @@
   const prizeLine = (e) => e.prizes.map((p) => `${p.place}${['st', 'nd', 'rd'][p.place - 1] || 'th'}: ${esc(p.prize)}`).join(' · ');
   const upcomingCard = (e) => `
     <a class="event-card" href="/event.html?e=${e.slug}">
-      <div class="top"><div class="badges"><span class="badge upcoming">Upcoming</span>${regOpen(e) ? '<span class="badge open">Registration open</span>' : '<span class="badge upcoming">Registration opens soon</span>'}</div></div>
+      <div class="top"><div class="badges"><span class="badge upcoming">Upcoming</span>${signedUpFor(me, e.slug) ? '<span class="badge active">✓ You’re signed up</span>' : regOpen(e) ? '<span class="badge open">Registration open</span>' : '<span class="badge upcoming">Registration opens soon</span>'}</div></div>
       <div class="body">
         <h3>${esc(e.name)}</h3>
         <p class="ink2 small" style="margin:0">${esc(e.tagline || '')}</p>

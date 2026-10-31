@@ -184,14 +184,14 @@
 </main>
 
 <script type="module">
-  import { mountChrome, api, countdown, fmtDate, fmtLocal, tz, both, money, esc } from '/js/common.js';
+  import { mountChrome, signedUpFor, api, countdown, fmtDate, fmtLocal, tz, both, money, esc } from '/js/common.js';
   // Race card graphic: the daily distance climbing, bar by bar.
   document.getElementById('rc-climb').innerHTML = Array.from({ length: 21 }, (_, i) => `<i style="height:${12 + i * 4.2}%;animation-delay:${i * 45}ms"></i>`).join('');
   import { rulesHTML } from '/js/legal.js';
   import { AGE_GROUP_LIST } from '/js/divisions.js';
   document.getElementById('ag-list').textContent = AGE_GROUP_LIST;
 
-  mountChrome();
+  const me = await mountChrome();
   document.getElementById('rules-list').innerHTML = rulesHTML();
 
   // The climb
@@ -228,7 +228,13 @@
     $('rc-fee').textContent = money(next.fee_cents);
     $('rc-label').classList.remove('hidden');
     countdown($('home-countdown'), next.start_ms);
-    if (config.registrationOpen) {
+    if (signedUpFor(me, next.slug)) {
+      $('reg-status').textContent = `You’re signed up · Season ${season}`;
+      $('rc-badge').textContent = 'You’re signed up';
+      $('rc-badge').className = 'badge open';
+      $('hero-cta').textContent = 'Go to my race';
+      $('hero-cta').href = '/account.html';
+    } else if (config.registrationOpen) {
       $('reg-status').textContent = `Registration open · Season ${season}`;
       $('rc-badge').textContent = 'Registration open';
       $('rc-badge').className = 'badge open';

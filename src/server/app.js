@@ -621,7 +621,11 @@ const AVATAR_MAX_BYTES = 150 * 1024; // the browser resizes pictures to 320 px b
 
 route('GET', '/profile', async ({ request, env }) => {
   const user = await requireViewer(request, env);
-  const p = await env.DB.prepare('SELECT avatar_updated, created_at FROM users WHERE id = ?').bind(user.id).first();
+  const p = await env.DB.prepare(
+    'SELECT avatar_updated, created_at, dob, gender, country, phone, emergency_name, emergency_phone FROM users WHERE id = ?',
+  ).bind(user.id).first();
+  const ship = await env.DB.prepare(`SELECT line1, line2, city, region, postal, country FROM addresses WHERE user_id = ? AND kind = 'shipping'`).bind(user.id).first();
+  const { n: entered } = await env.DB.prepare('SELECT COUNT(*) AS n FROM registrations WHERE user_id = ?').bind(user.id).first();
   // Events competed in: races that have started (live or finished), not counting disqualifications.
   const { results: regs } = await env.DB.prepare(
     `SELECT r.id, r.status, r.eliminated_day, e.id AS event_id, e.name, e.slug, e.status AS event_status, e.start_date
@@ -636,6 +640,13 @@ route('GET', '/profile', async ({ request, env }) => {
   }
   return json({
     user: { first_name: user.first_name, last_name: user.last_name, email: user.email, since: p?.created_at },
+    details: {
+      first_name: user.first_name, last_name: user.last_name, email: user.email, dob: p?.dob, gender: p?.gender, country: p?.country,
+      phone: p?.phone, emergency_name: p?.emergency_name, emergency_phone: p?.emergency_phone, shipping: ship || null,
+      // Birth date and sex decide a runner's division, so they lock once the runner has entered a race.
+      division_locked: entered > 0,
+    },
+    isAdmin: !!user.isAdmin,
     avatar: p?.avatar_updated ? `/api/profile/avatar?v=${p.avatar_updated}` : null,
     events_competed: regs.filter((r) => r.status !== 'disqualified').length,
     events: regs.map((r) => ({ name: r.name, slug: r.slug, status: r.status, eliminated_day: r.eliminated_day, event_status: r.event_status })),
@@ -650,6 +661,53 @@ route('GET', '/profile/avatar', async ({ request, env }) => {
   if (!m) throw new HttpError(404, 'No profile picture.');
   const bytes = Uint8Array.from(atob(m[2]), (c) => c.charCodeAt(0));
   return new Response(bytes, { headers: { 'content-type': m[1], 'cache-control': 'private, max-age=86400', 'x-content-type-options': 'nosniff' } });
+});
+
+// Edit my details. Email can't be changed here (it's the login); birth date and sex lock after entering a race.
+route('POST', '/profile/details', async ({ request, env }) => {
+  const user = await requireViewer(request, env);
+  if (user.viewingAs) throw new HttpError(400, 'Demo runners’ details can’t be changed.');
+  const b = await readJson(request);
+  required(b, ['first_name', 'last_name']);
+  const { n: entered } = await env.DB.prepare('SELECT COUNT(*) AS n FROM registrations WHERE user_id = ?').bind(user.id).first();
+  const cur = await env.DB.prepare('SELECT dob, gender FROM users WHERE id = ?').bind(user.id).first();
+  let dob = cur.dob;
+  let gender = cur.gender;
+  if (!entered) {
+    if (b.dob && (!/^\d{4}-\d{2}-\d{2}$/.test(b.dob) || Date.parse(`${b.dob}T00:00:00Z`) >= Date.now())) throw new HttpError(400, 'Enter a valid date of birth.');
+    if (b.gender && !['Male', 'Female'].includes(b.gender)) throw new HttpError(400, 'Choose Male or Female.');
+    dob = b.dob || null;
+    gender = b.gender || null;
+  }
+  await env.DB.prepare(
+    'UPDATE users SET first_name = ?, last_name = ?, dob = ?, gender = ?, country = ?, phone = ?, emergency_name = ?, emergency_phone = ? WHERE id = ?',
+  ).bind(clean(b.first_name, 60), clean(b.last_name, 60), dob, gender, clean(b.country, 60), clean(b.phone, 40),
+    clean(b.emergency_name, 120), clean(b.emergency_phone, 40), user.id).run();
+  const a = b.shipping || {};
+  if (a.line1 || a.city || a.postal) {
+    const s = validAddress(a, 'Shipping');
+    await env.DB.prepare(
+      `INSERT INTO addresses (user_id, kind, line1, line2, city, region, postal, country) VALUES (?, 'shipping', ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(user_id, kind) DO UPDATE SET line1 = excluded.line1, line2 = excluded.line2, city = excluded.city,
+         region = excluded.region, postal = excluded.postal, country = excluded.country`,
+    ).bind(user.id, s.line1, s.line2, s.city, s.region, s.postal, s.country).run();
+  }
+  return json({ ok: true });
+});
+
+route('POST', '/profile/password', async ({ request, env }) => {
+  const user = await requireViewer(request, env);
+  if (user.viewingAs) throw new HttpError(400, 'Demo runners’ passwords can’t be changed.');
+  const { current, next } = await readJson(request);
+  const u = await env.DB.prepare('SELECT password_hash, password_salt FROM users WHERE id = ?').bind(user.id).first();
+  if (!(await verifyPassword(String(current || ''), u.password_hash, u.password_salt))) throw new HttpError(403, 'Your current password is wrong.');
+  validatePassword(next);
+  const { hash, salt } = await hashPassword(next);
+  await env.DB.prepare('UPDATE users SET password_hash = ?, password_salt = ? WHERE id = ?').bind(hash, salt, user.id).run();
+  // Log out every other device, keep this one.
+  const token = (request.headers.get('cookie') || '').match(/(?:^|;\s*)lls_session=([^;]+)/)?.[1] || '';
+  await env.DB.prepare('DELETE FROM sessions WHERE user_id = ? AND token != ?').bind(user.id, token).run();
+  return json({ ok: true });
 });
 
 route('POST', '/profile/avatar', async ({ request, env }) => {

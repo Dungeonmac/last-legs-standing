@@ -148,7 +148,10 @@ const TABS = [
 ];
 
 // Race sign-up links show only when registration is open (or for an admin previewing in demo mode).
-const showSignup = (me) => !!me.raceSignupOpen || (!!me.user?.isAdmin && demoOn());
+// ...and never once the runner is already signed up for an upcoming race.
+export const signedUpFor = (me, slug) => (me.registrations || []).some((r) => r.slug === slug && r.event_status === 'upcoming');
+const signedUpAny = (me) => (me.registrations || []).some((r) => r.event_status === 'upcoming');
+const showSignup = (me) => !signedUpAny(me) && (!!me.raceSignupOpen || (!!me.user?.isAdmin && demoOn()));
 
 function header(page, me) {
   const u = getUnits();
@@ -170,6 +173,7 @@ function header(page, me) {
       </a>
       ${me.user ? `<a class="my-race-btn" href="/account.html" ${page === 'account' ? 'aria-current="page"' : ''}>
         ${me.user.avatar ? `<img src="${me.user.avatar}" alt="" width="26" height="26">` : `<span class="mr-initial" aria-hidden="true">${esc((me.user.first_name || '?')[0])}</span>`}My race</a>` : ''}
+      <a class="live-pill hidden" href="/live.html" data-live-pill>Live</a>
       <button class="menu-btn" aria-expanded="false" aria-controls="nav">Menu</button>
       <nav class="nav" id="nav" aria-label="Main">
         ${links}
@@ -249,7 +253,9 @@ export async function mountChrome() {
   });
   document.querySelectorAll('.units button').forEach((b) => b.addEventListener('click', () => setUnits(b.dataset.u)));
   api('/live').then((l) => {
-    if (l.live) document.querySelector('.nav [data-live-link]')?.classList.add('live-dot');
+    if (!l.live) return;
+    document.querySelector('.nav [data-live-link]')?.classList.add('live-dot');
+    document.querySelector('[data-live-pill]')?.classList.remove('hidden');
   }).catch(() => {});
   return me;
 }

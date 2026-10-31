@@ -20,28 +20,40 @@
   <section class="section" style="padding-top:2.5rem"><div class="wrap stack" id="content"><span class="spinner"></span></div></section>
 </main>
 <script type="module">
-  import { mountChrome, requireLogin, api, esc } from '/js/common.js';
+  import { mountChrome, requireLogin, api, esc, demoOn, toast } from '/js/common.js';
   import { RANKS, rankFor, nextRank, avatarHTML, bestAward } from '/js/ranks.js';
   await mountChrome();
   await requireLogin();
   const $ = (id) => document.getElementById(id);
   let p = await api('/profile');
   const ord = (n) => `${n}${['st', 'nd', 'rd'][n - 1] || 'th'}`;
+  // Admins in Demo mode can preview every rank and award ribbon on their own profile (nothing is saved).
+  const canPreview = p.isAdmin && demoOn();
+  const PREVIEW_AWARDS = [
+    ['', 'No award'], ['1|Overall', '1st Overall (crown)'], ['2|Overall', '2nd Overall'], ['1|Women', '1st Women'],
+    ['2|Men', '2nd Men'], ['3|Men 40–59', '3rd Men 40–59'], ['1|Women 20–39', '1st Women 20–39'],
+  ];
+  let preview = { rank: '', award: '' };
 
-  function render() {
+  const field = (id, label, value, opts = '') => `<div class="field ${opts}"><label for="${id}">${label}</label><input id="${id}" value="${esc(value ?? '')}"></div>`;
+
+  function topCard() {
     const name = `${p.user.first_name} ${p.user.last_name}`;
-    const rank = rankFor(p.events_competed);
+    const realRank = rankFor(p.events_competed);
+    const rank = preview.rank ? RANKS.find((r) => r.key === preview.rank) : realRank;
+    const [pl, cat] = preview.award.split('|');
+    const award = preview.rank || preview.award ? (pl ? { place: +pl, category: cat } : null) : bestAward(p.awards);
     const next = nextRank(p.events_competed);
-    const award = bestAward(p.awards);
-    $('content').innerHTML = `
+    return `
       <div class="card raise">
-        <div class="row" style="gap:2rem;align-items:center">
-          <div style="padding-top:1rem">${avatarHTML({ src: p.avatar, name, events: p.events_competed, award, size: 'lg' })}</div>
-          <div class="stack" style="flex:1;min-width:240px">
+        <div class="row" style="gap:1.6rem;align-items:center">
+          <div style="padding-top:.6rem">${avatarHTML({ src: p.avatar, name, award, rank, size: 'md' })}</div>
+          <div class="stack" style="flex:1;min-width:220px">
             <div><h2 style="margin:0">${esc(name)}</h2><p class="small muted" style="margin:.2rem 0 0">${esc(p.user.email)}</p></div>
             <div><span class="badge active">${esc(rank.name)}</span>
-              <span class="small ink2" style="margin-left:.4rem">${p.events_competed} race${p.events_competed === 1 ? '' : 's'} competed</span></div>
-            <p class="small ink2" style="margin:0">${next ? `Compete in <b>${next.min - p.events_competed} more race${next.min - p.events_competed === 1 ? '' : 's'}</b> to reach <b>${esc(next.name)}</b> (${esc(next.look.toLowerCase())}).` : 'You’ve reached the highest rank. Legend.'}</p>
+              <span class="small ink2" style="margin-left:.4rem">${p.events_competed} race${p.events_competed === 1 ? '' : 's'} competed</span>
+              ${preview.rank || preview.award ? '<span class="badge demo" style="margin-left:.4rem">Demo preview</span>' : ''}</div>
+            <p class="small ink2" style="margin:0">${next ? `Compete in <b>${next.min - p.events_competed} more race${next.min - p.events_competed === 1 ? '' : 's'}</b> to reach <b>${esc(next.name)}</b>.` : 'You’ve reached the highest rank. Legend.'}</p>
             <div class="row" style="gap:.6rem">
               <label class="btn sm" for="pic">${p.avatar ? 'Change picture' : 'Upload a picture'}</label>
               <input type="file" id="pic" accept="image/*" class="hidden">
@@ -50,7 +62,54 @@
             <div id="pic-msg" class="small"></div>
           </div>
         </div>
-      </div>
+        ${canPreview ? `
+        <div class="demo-banner" style="margin:1.4rem 0 0">
+          <b>Demo mode:</b> preview any frame on your own profile (only you see this, nothing is saved).
+          <div class="row" style="gap:.6rem;margin-top:.6rem">
+            <select id="pv-rank" style="width:auto;padding:.4rem .6rem"><option value="">My real rank</option>${RANKS.map((r) => `<option value="${r.key}" ${preview.rank === r.key ? 'selected' : ''}>${esc(r.name)}</option>`).join('')}</select>
+            <select id="pv-award" style="width:auto;padding:.4rem .6rem">${PREVIEW_AWARDS.map(([v, l]) => `<option value="${v}" ${preview.award === v ? 'selected' : ''}>${l}</option>`).join('')}</select>
+          </div>
+        </div>` : ''}
+      </div>`;
+  }
+
+  function render() {
+    const d = p.details;
+    const s = d.shipping || {};
+    $('content').innerHTML = `
+      ${topCard()}
+      <form class="card stack" id="details" novalidate>
+        <h3 style="margin:0">My details</h3>
+        <div id="d-msg"></div>
+        <div class="form-grid">
+          ${field('d-first', 'First name', d.first_name, 'c3')}${field('d-last', 'Last name', d.last_name, 'c3')}
+          <div class="field c3"><label for="d-email">Email (your login)</label><input id="d-email" value="${esc(d.email)}" disabled><span class="hint">To change it, <a href="/help.html?topic=Account%20or%20login">contact the help desk</a>.</span></div>
+          ${field('d-phone', 'Phone', d.phone, 'c3')}
+          <div class="field c2"><label for="d-dob">Date of birth</label><input id="d-dob" type="date" value="${esc(d.dob || '')}" ${d.division_locked ? 'disabled' : ''}></div>
+          <div class="field c2"><label for="d-gender">Gender</label><select id="d-gender" ${d.division_locked ? 'disabled' : ''}><option value="">Select…</option><option ${d.gender === 'Male' ? 'selected' : ''}>Male</option><option ${d.gender === 'Female' ? 'selected' : ''}>Female</option></select></div>
+          ${field('d-country', 'Country', d.country, 'c2')}
+          ${d.division_locked ? '<p class="hint" style="grid-column:1/-1;margin:-.4rem 0 0">Date of birth and gender set your division, so they’re locked once you’ve entered a race. Need a correction? Contact the help desk.</p>' : ''}
+          ${field('d-em-name', 'Emergency contact name', d.emergency_name, 'c3')}${field('d-em-phone', 'Emergency contact phone', d.emergency_phone, 'c3')}
+        </div>
+        <h3 style="margin:.5rem 0 0">Shipping address</h3>
+        <p class="hint" style="margin:0">Used only to ship a shirt, medal and prizes if you win an award.</p>
+        <div class="form-grid">
+          ${field('s-line1', 'Street address', s.line1, 'c4')}${field('s-line2', 'Apt / suite', s.line2, 'c2')}
+          ${field('s-city', 'City', s.city, 'c2')}${field('s-region', 'State / province', s.region, 'c2')}${field('s-postal', 'ZIP / postal code', s.postal, 'c2')}
+          ${field('s-country', 'Country', s.country, 'c3')}
+        </div>
+        <div><button class="btn" type="submit">Save my details</button></div>
+      </form>
+
+      <form class="card stack" id="pw" novalidate>
+        <h3 style="margin:0">Change password</h3>
+        <div id="pw-msg"></div>
+        <div class="form-grid">
+          <div class="field c3"><label for="pw-cur">Current password</label><input id="pw-cur" type="password" autocomplete="current-password"></div>
+          <div class="field c3"><label for="pw-new">New password</label><input id="pw-new" type="password" autocomplete="new-password"><span class="hint">8+ characters, with a letter and a number.</span></div>
+        </div>
+        <div><button class="btn ghost" type="submit">Change password</button></div>
+      </form>
 
       <div class="card">
         <h3>My awards</h3>
@@ -64,9 +123,9 @@
         <h3>How profile frames work</h3>
         <p class="ink2">Your frame shows how experienced you are. It levels up every time you <b>compete in a race</b> (any race that has started; disqualifications don’t count). Each level has a fancier shape and color.</p>
         <div class="rank-table">${RANKS.map((r) => `
-          <div class="tile ${r.key === rank.key ? 'current' : ''}">
-            ${avatarHTML({ name: r.name, rank: r, size: 'md' })}
-            <div><b>${esc(r.name)}</b>${r.key === rank.key ? ' <span class="badge active">You</span>' : ''}
+          <div class="tile ${r.key === rankFor(p.events_competed).key ? 'current' : ''}">
+            ${avatarHTML({ name: r.name, rank: r, size: 'sm' })}
+            <div><b>${esc(r.name)}</b>${r.key === rankFor(p.events_competed).key ? ' <span class="badge active">You</span>' : ''}
               <div class="small muted">${r.min === 0 ? 'No races yet' : r.min === 12 ? '12+ races' : `${r.min} race${r.min === 1 ? '' : 's'}`} · ${esc(r.look)}</div></div>
           </div>`).join('')}
         </div>
@@ -78,10 +137,35 @@
           ${avatarHTML({ name: 'Third', events: 1, award: { place: 3, category: 'Men 40–59' } })}
         </div>
       </div>`;
+    wire();
+  }
+
+  function wire() {
     $('pic').addEventListener('change', (e) => upload(e.target.files[0]));
-    $('remove-pic')?.addEventListener('click', async () => {
-      await api('/profile/avatar', { json: { remove: true } });
-      p.avatar = null; render();
+    $('remove-pic')?.addEventListener('click', async () => { await api('/profile/avatar', { json: { remove: true } }); p.avatar = null; render(); });
+    $('pv-rank')?.addEventListener('change', (e) => { preview.rank = e.target.value; render(); });
+    $('pv-award')?.addEventListener('change', (e) => { preview.award = e.target.value; render(); });
+    $('details').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const v = (id) => $(id).value.trim();
+      try {
+        await api('/profile/details', { json: {
+          first_name: v('d-first'), last_name: v('d-last'), phone: v('d-phone'), dob: v('d-dob'), gender: v('d-gender'), country: v('d-country'),
+          emergency_name: v('d-em-name'), emergency_phone: v('d-em-phone'),
+          shipping: { line1: v('s-line1'), line2: v('s-line2'), city: v('s-city'), region: v('s-region'), postal: v('s-postal'), country: v('s-country') },
+        } });
+        p = await api('/profile');
+        render();
+        toast('Your details are saved.');
+      } catch (x) { $('d-msg').innerHTML = `<div class="alert error">${esc(x.message)}</div>`; }
+    });
+    $('pw').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      try {
+        await api('/profile/password', { json: { current: $('pw-cur').value, next: $('pw-new').value } });
+        $('pw-cur').value = $('pw-new').value = '';
+        $('pw-msg').innerHTML = '<div class="alert ok">Password changed. Other devices have been logged out.</div>';
+      } catch (x) { $('pw-msg').innerHTML = `<div class="alert error">${esc(x.message)}</div>`; }
     });
   }
 

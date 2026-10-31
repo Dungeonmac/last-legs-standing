@@ -24,13 +24,13 @@
   <section class="section" style="padding-top:2.5rem"><div class="wrap" id="content"><span class="spinner"></span></div></section>
 </main>
 <script type="module">
-  import { mountChrome, api, fmtDate, fmtLocal, fmtUTC, money, esc, dist, both, pace, duration, countdown } from '/js/common.js';
+  import { mountChrome, signedUpFor, api, fmtDate, fmtLocal, fmtUTC, money, esc, dist, both, pace, duration, countdown } from '/js/common.js';
   import { survivorsChart } from '/js/chart.js';
   import { GOLDEN_RULES } from '/js/legal.js';
   import { awardsHTML } from '/js/awards-view.js';
   import { applyEventStats } from '/js/event-stats.js';
   import { AGE_GROUP_LIST } from '/js/divisions.js';
-  mountChrome();
+  const me = await mountChrome();
 
   const slug = new URLSearchParams(location.search).get('e');
   const $ = (id) => document.getElementById(id);
@@ -68,7 +68,9 @@
             <h3 style="margin-top:1rem">Prizes</h3>
             <div class="table-wrap"><table><tbody>${ev.prizes.map((p) => `<tr><td><span class="place p${p.place}">${p.place}</span></td><td><b>${ord(p.place)} place</b></td><td class="ink2">${esc(p.prize)}</td></tr>`).join('')}</tbody></table></div>
           </div>
-          ${ev.registration_open && config.registrationOpen
+          ${signedUpFor(me, ev.slug)
+            ? '<div class="alert ok">✓ You’re signed up for this race. <a href="/account.html">Go to my race →</a></div>'
+            : ev.registration_open && config.registrationOpen
             ? `<a class="btn lg block" href="/signup.html?event=${ev.slug}">Sign up · ${money(ev.fee_cents)}</a>`
             : ev.registration_open ? '<div class="alert ok">Registration opens soon. Start training now: Day 1 is just 1 km.</div>' : '<div class="alert warn">Registration is closed.</div>'}
         </div>

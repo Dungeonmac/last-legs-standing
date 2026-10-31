@@ -200,7 +200,7 @@
   const params = new URLSearchParams(location.search);
 
   const [config, events] = await Promise.all([api('/config'), api('/events')]);
-  const open = events.upcoming.filter((e) => e.registration_open);
+  let open = events.upcoming.filter((e) => e.registration_open);
 
   // Sign-up opens once real card payments are connected. Until then visitors see this instead of the form.
   if (!config.registrationOpen) {
@@ -215,6 +215,23 @@
         <div class="row" style="justify-content:center;margin-top:1.5rem"><a class="btn" href="/#rules">Read the rules</a><a class="btn ghost" href="/how-to-submit.html">How runs are submitted</a><a class="btn ghost" href="/help.html">Questions?</a></div>
       </div>`;
     throw new Error('registration not open yet'); // stop here; nothing else on this page applies
+  }
+
+  // Already signed up? Only offer races they haven't entered; if none are left, say so instead of a form.
+  const mine = new Set((me.registrations || []).map((r) => r.slug));
+  const entered = open.filter((e) => mine.has(e.slug));
+  open = open.filter((e) => !mine.has(e.slug));
+  if (!open.length && entered.length) {
+    form.classList.add('hidden');
+    $('signup-done').classList.remove('hidden');
+    $('signup-done').innerHTML = `
+      <div class="card center" style="max-width:640px;margin:0 auto;padding:3rem 2rem">
+        <div class="eyebrow">You’re in</div>
+        <h2 class="display" style="font-size:clamp(2.2rem,6vw,3.2rem)">You’re already signed up.</h2>
+        <p class="lead" style="margin:0 auto 1rem">You’re registered for <b>${entered.map((e) => esc(e.name)).join(', ')}</b>. See your bib, countdown and checklist on My race.</p>
+        <div class="row" style="justify-content:center;margin-top:1.5rem"><a class="btn" href="/account.html">Go to my race</a><a class="btn ghost" href="/how-to-submit.html">How to submit runs</a></div>
+      </div>`;
+    throw new Error('already signed up');
   }
 
   // ---- challenges

@@ -754,3 +754,15 @@ input, select, textarea { font-size: max(16px, 1em); }
 .stat-picks input { width: 18px; height: 18px; margin-top: .15rem; accent-color: var(--orange); flex: none; }
 
 [data-stat][hidden] { display: none !important; }
+
+/* LIVE badge next to the Menu button while a race is live (the nav is collapsed below 960px) */
+.live-pill { display: none; }
+@media (max-width: 960px) {
+  .live-pill:not(.hidden) {
+    display: inline-flex; align-items: center; gap: .4rem; margin-left: auto; padding: .3rem .7rem; border-radius: 999px;
+    border: 1.5px solid var(--orange); color: var(--ink); font-weight: 900; font-size: .74rem; letter-spacing: .1em; text-transform: uppercase;
+    text-decoration: none !important; animation: live-ring 1.8s infinite;
+  }
+  .live-pill:not(.hidden)::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--orange); animation: pulse 1.8s infinite; }
+  .live-pill:not(.hidden) + .menu-btn { margin-left: .5rem; }
+}
