@@ -60,3 +60,16 @@ _Last updated: 2026-10-30_
 - `node_modules` sits inside OneDrive and may cause sync churn. You can exclude it, or move the project outside OneDrive.
 - The local database lives in `.wrangler/` and is not in git. `npm run db:reset` rebuilds it with demo data.
 - Never run `npm run db:prod-seed` on a live site with real runners: it wipes the live database.
+
+## 2026-10-31
+- Admin rebuilt (tabs): overview, events (create/edit/delete, choose statistics shown), help tickets with replies,
+  flagged runners (clear / disqualify / forgive), runners & runs (upload or remove a run for someone), admins
+  (owner jeffeersonjeff546@gmail.com can only be removed with the owner password; only its hash is stored, as the
+  Cloudflare secret OWNER_PASSWORD_HASH), demo mode, activity log. Migration: scripts/migrations/2026-10-31-admin-profiles.sql.
+- Profiles: picture upload + rank frames (Rookie, Bronze 1, Silver 2, Gold 3, Platinum 5, Diamond 8, Legend 12+ races),
+  award ribbons, champion crown. Explained on /profile.html and in the FAQ.
+- Age groups are 20 years wide (19 & under, 20–39, 40–59, 60–79, 80+).
+- Help ticket replies are saved but NOT emailed until Workers Paid ($5/mo) + Cloudflare Email Sending (binding EMAIL),
+  or a Resend key. Until then use "Open in my email" on each ticket.
+- Still to do: Workers Paid plan; Strava developer app (Strava now requires a Strava subscription for developers,
+  1 athlete until upgraded to 10, more than 10 needs Strava's review); native phone app for background GPS (optional).
