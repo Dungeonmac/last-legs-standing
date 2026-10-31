@@ -2,18 +2,22 @@
 import { esc, fmtLocal } from './common.js';
 import { bibHTML } from './bib.js';
 
-const BEAT = 1650; // ms between lines; each line is on screen for about 1.8 s
+// Each line's animation runs this long. It's fully readable for about 62% of that (the rest is the
+// slam-in and fade-out), so 2600 ms ≈ 1.6 s to read a short line and 3200 ms ≈ 2 s for a longer one.
+const SHORT = 2600;
+const LONG = 3200;
 
 /** Plays the sequence. Resolves when the runner taps through or skips. */
 export function playHype({ first = '', last = '', bib, event = 'Last Legs Standing', startMs } = {}) {
+  // [html, ms on screen]: lines with more words stay up longer.
   const lines = [
-    `${esc(first) || 'Runner'},<br><span class="accent">you’re in.</span>`,
-    `Day 1.<br><span class="accent">1 km.</span>`,
-    `Then 2.<br>Then 3.<br><span class="gold">Then 30.</span>`,
-    `No finish line.<small>No cap. No final day. It ends when one runner is left.</small>`,
-    `Miss a day?<br><span class="accent">You’re out.</span>`,
-    `One more K.<br>Every day.<br><span class="accent">Until one is left.</span>`,
-    `How many days<br>do you have<br><span class="gold">in you?</span>`,
+    [`${esc(first) || 'Runner'},<br><span class="accent">you’re in.</span>`, SHORT],
+    [`Day 1.<br><span class="accent">1 km.</span>`, SHORT],
+    [`Then 2.<br>Then 3.<br><span class="gold">Then 30.</span>`, LONG],
+    [`No finish line.<small>No cap. No final day. It ends when one runner is left.</small>`, LONG],
+    [`Miss a day?<br><span class="accent">You’re out.</span>`, SHORT],
+    [`One more K.<br>Every day.<br><span class="accent">Until one is left.</span>`, LONG],
+    [`How many days<br>do you have<br><span class="gold">in you?</span>`, LONG],
   ];
   const root = document.createElement('div');
   root.className = 'hype';
@@ -23,7 +27,7 @@ export function playHype({ first = '', last = '', bib, event = 'Last Legs Standi
   root.innerHTML = `
     ${Array.from({ length: 7 }, (_, i) => `<div class="streak" style="top:${8 + i * 13}%;animation-delay:${(i * 0.23).toFixed(2)}s;animation-duration:${(1 + (i % 3) * 0.35).toFixed(2)}s"></div>`).join('')}
     <button class="btn ghost sm skip-hype" type="button">Skip</button>
-    ${lines.map((l) => `<div class="line" aria-hidden="true">${l}</div>`).join('')}
+    ${lines.map(([l, ms]) => `<div class="line" aria-hidden="true" style="animation-duration:${ms}ms">${l}</div>`).join('')}
     <div class="line final-wrap" aria-live="polite"><div class="final">
       ${bibHTML({ event, bib: bib ?? "—", name: `${first}${last ? ` ${last[0]}.` : ""}` })}
       <h2>Welcome to the <span class="accent">start line.</span></h2>
@@ -58,10 +62,15 @@ export function playHype({ first = '', last = '', bib, event = 'Last Legs Standi
     root.querySelector('.go').addEventListener('click', finish);
 
     if (reduced) return showFinal();
-    lines.forEach((_, i) => timers.push(setTimeout(() => {
-      els[i].classList.add('on', ...(i === 4 ? ['hit'] : []));
-      navigator.vibrate?.(i === 4 ? [80, 60, 80] : 35);
-    }, 250 + i * BEAT)));
-    timers.push(setTimeout(showFinal, 250 + lines.length * BEAT));
+    // Each line starts as the one before it fades out (the last ~10% of its animation).
+    let at = 250;
+    lines.forEach(([, ms], i) => {
+      timers.push(setTimeout(() => {
+        els[i].classList.add('on', ...(i === 4 ? ['hit'] : []));
+        navigator.vibrate?.(i === 4 ? [80, 60, 80] : 35);
+      }, at));
+      at += Math.round(ms * 0.9);
+    });
+    timers.push(setTimeout(showFinal, at));
   });
 }
