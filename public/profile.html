@@ -13,9 +13,10 @@
 </head>
 <body data-page="profile">
 <main id="main">
-  <section class="page-head"><div class="wrap">
-    <div class="eyebrow">Account</div>
-    <h1 class="display" style="font-size:clamp(2.4rem,6vw,4rem)">My profile</h1>
+  <section class="page-head"><div class="wrap row between">
+    <div><div class="eyebrow">Account</div>
+    <h1 class="display" style="font-size:clamp(2.4rem,6vw,4rem);margin:0">My profile</h1></div>
+    <button class="btn ghost" id="logout" type="button">Log out</button>
   </div></section>
   <section class="section" style="padding-top:2.5rem"><div class="wrap stack" id="content"><span class="spinner"></span></div></section>
 </main>
@@ -24,6 +25,7 @@
   import { RANKS, rankFor, nextRank, rankRange, avatarHTML, bestAward } from '/js/ranks.js';
   await mountChrome();
   await requireLogin();
+  document.getElementById('logout').addEventListener('click', async () => { await api('/auth/logout', { method: 'POST' }); location.href = '/'; });
   const $ = (id) => document.getElementById(id);
   let p = await api('/profile');
   const ord = (n) => `${n}${['st', 'nd', 'rd'][n - 1] || 'th'}`;
